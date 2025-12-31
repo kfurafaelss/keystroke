@@ -1,0 +1,207 @@
+use evdev::Key;
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
+static KEY_NAMES: LazyLock<HashMap<Key, &'static str>> = LazyLock::new(|| {
+    let mut m = HashMap::new();
+
+    m.insert(Key::KEY_LEFTCTRL, "Ctrl");
+    m.insert(Key::KEY_RIGHTCTRL, "Ctrl");
+    m.insert(Key::KEY_LEFTSHIFT, "Shift");
+    m.insert(Key::KEY_RIGHTSHIFT, "Shift");
+    m.insert(Key::KEY_LEFTALT, "Alt");
+    m.insert(Key::KEY_RIGHTALT, "Alt");
+    m.insert(Key::KEY_LEFTMETA, "Super");
+    m.insert(Key::KEY_RIGHTMETA, "Super");
+    m.insert(Key::KEY_CAPSLOCK, "Caps");
+
+    m.insert(Key::KEY_F1, "F1");
+    m.insert(Key::KEY_F2, "F2");
+    m.insert(Key::KEY_F3, "F3");
+    m.insert(Key::KEY_F4, "F4");
+    m.insert(Key::KEY_F5, "F5");
+    m.insert(Key::KEY_F6, "F6");
+    m.insert(Key::KEY_F7, "F7");
+    m.insert(Key::KEY_F8, "F8");
+    m.insert(Key::KEY_F9, "F9");
+    m.insert(Key::KEY_F10, "F10");
+    m.insert(Key::KEY_F11, "F11");
+    m.insert(Key::KEY_F12, "F12");
+
+    m.insert(Key::KEY_ESC, "Esc");
+    m.insert(Key::KEY_TAB, "Tab");
+    m.insert(Key::KEY_BACKSPACE, "Backspace");
+    m.insert(Key::KEY_ENTER, "Enter");
+    m.insert(Key::KEY_SPACE, "Space");
+    m.insert(Key::KEY_INSERT, "Insert");
+    m.insert(Key::KEY_DELETE, "Delete");
+    m.insert(Key::KEY_HOME, "Home");
+    m.insert(Key::KEY_END, "End");
+    m.insert(Key::KEY_PAGEUP, "PgUp");
+    m.insert(Key::KEY_PAGEDOWN, "PgDn");
+    m.insert(Key::KEY_UP, "↑");
+    m.insert(Key::KEY_DOWN, "↓");
+    m.insert(Key::KEY_LEFT, "←");
+    m.insert(Key::KEY_RIGHT, "→");
+
+    m.insert(Key::KEY_0, "0");
+    m.insert(Key::KEY_1, "1");
+    m.insert(Key::KEY_2, "2");
+    m.insert(Key::KEY_3, "3");
+    m.insert(Key::KEY_4, "4");
+    m.insert(Key::KEY_5, "5");
+    m.insert(Key::KEY_6, "6");
+    m.insert(Key::KEY_7, "7");
+    m.insert(Key::KEY_8, "8");
+    m.insert(Key::KEY_9, "9");
+
+    m.insert(Key::KEY_A, "A");
+    m.insert(Key::KEY_B, "B");
+    m.insert(Key::KEY_C, "C");
+    m.insert(Key::KEY_D, "D");
+    m.insert(Key::KEY_E, "E");
+    m.insert(Key::KEY_F, "F");
+    m.insert(Key::KEY_G, "G");
+    m.insert(Key::KEY_H, "H");
+    m.insert(Key::KEY_I, "I");
+    m.insert(Key::KEY_J, "J");
+    m.insert(Key::KEY_K, "K");
+    m.insert(Key::KEY_L, "L");
+    m.insert(Key::KEY_M, "M");
+    m.insert(Key::KEY_N, "N");
+    m.insert(Key::KEY_O, "O");
+    m.insert(Key::KEY_P, "P");
+    m.insert(Key::KEY_Q, "Q");
+    m.insert(Key::KEY_R, "R");
+    m.insert(Key::KEY_S, "S");
+    m.insert(Key::KEY_T, "T");
+    m.insert(Key::KEY_U, "U");
+    m.insert(Key::KEY_V, "V");
+    m.insert(Key::KEY_W, "W");
+    m.insert(Key::KEY_X, "X");
+    m.insert(Key::KEY_Y, "Y");
+    m.insert(Key::KEY_Z, "Z");
+
+    m.insert(Key::KEY_MINUS, "-");
+    m.insert(Key::KEY_EQUAL, "=");
+    m.insert(Key::KEY_LEFTBRACE, "[");
+    m.insert(Key::KEY_RIGHTBRACE, "]");
+    m.insert(Key::KEY_SEMICOLON, ";");
+    m.insert(Key::KEY_APOSTROPHE, "'");
+    m.insert(Key::KEY_GRAVE, "`");
+    m.insert(Key::KEY_BACKSLASH, "\\");
+    m.insert(Key::KEY_COMMA, ",");
+    m.insert(Key::KEY_DOT, ".");
+    m.insert(Key::KEY_SLASH, "/");
+
+    m.insert(Key::KEY_NUMLOCK, "NumLock");
+    m.insert(Key::KEY_KP0, "Num0");
+    m.insert(Key::KEY_KP1, "Num1");
+    m.insert(Key::KEY_KP2, "Num2");
+    m.insert(Key::KEY_KP3, "Num3");
+    m.insert(Key::KEY_KP4, "Num4");
+    m.insert(Key::KEY_KP5, "Num5");
+    m.insert(Key::KEY_KP6, "Num6");
+    m.insert(Key::KEY_KP7, "Num7");
+    m.insert(Key::KEY_KP8, "Num8");
+    m.insert(Key::KEY_KP9, "Num9");
+    m.insert(Key::KEY_KPPLUS, "Num+");
+    m.insert(Key::KEY_KPMINUS, "Num-");
+    m.insert(Key::KEY_KPASTERISK, "Num*");
+    m.insert(Key::KEY_KPSLASH, "Num/");
+    m.insert(Key::KEY_KPDOT, "Num.");
+    m.insert(Key::KEY_KPENTER, "NumEnter");
+
+    m.insert(Key::KEY_MUTE, "Mute");
+    m.insert(Key::KEY_VOLUMEDOWN, "Vol-");
+    m.insert(Key::KEY_VOLUMEUP, "Vol+");
+    m.insert(Key::KEY_PLAYPAUSE, "Play/Pause");
+    m.insert(Key::KEY_STOPCD, "Stop");
+    m.insert(Key::KEY_PREVIOUSSONG, "Prev");
+    m.insert(Key::KEY_NEXTSONG, "Next");
+
+    m.insert(Key::KEY_PRINT, "Print");
+    m.insert(Key::KEY_SCROLLLOCK, "ScrollLock");
+    m.insert(Key::KEY_PAUSE, "Pause");
+    m.insert(Key::KEY_SYSRQ, "SysRq");
+
+    m
+});
+
+#[derive(Debug, Clone)]
+pub struct KeyDisplay {
+    pub key: Key,
+
+    pub display_name: String,
+
+    #[allow(dead_code)]
+    pub pressed: bool,
+}
+
+impl KeyDisplay {
+    pub fn new(key: Key, pressed: bool) -> Self {
+        let display_name = key_to_display_name(key);
+        Self {
+            key,
+            display_name,
+            pressed,
+        }
+    }
+}
+
+pub fn key_to_display_name(key: Key) -> String {
+    KEY_NAMES
+        .get(&key)
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| format!("{:?}", key).replace("KEY_", ""))
+}
+
+pub fn is_modifier(key: Key) -> bool {
+    matches!(
+        key,
+        Key::KEY_LEFTCTRL
+            | Key::KEY_RIGHTCTRL
+            | Key::KEY_LEFTSHIFT
+            | Key::KEY_RIGHTSHIFT
+            | Key::KEY_LEFTALT
+            | Key::KEY_RIGHTALT
+            | Key::KEY_LEFTMETA
+            | Key::KEY_RIGHTMETA
+    )
+}
+
+#[allow(dead_code)]
+pub fn normalize_modifier(key: Key) -> Key {
+    match key {
+        Key::KEY_RIGHTCTRL => Key::KEY_LEFTCTRL,
+        Key::KEY_RIGHTSHIFT => Key::KEY_LEFTSHIFT,
+        Key::KEY_RIGHTALT => Key::KEY_LEFTALT,
+        Key::KEY_RIGHTMETA => Key::KEY_LEFTMETA,
+        _ => key,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_key_to_display_name() {
+        assert_eq!(key_to_display_name(Key::KEY_A), "A");
+        assert_eq!(key_to_display_name(Key::KEY_LEFTCTRL), "Ctrl");
+        assert_eq!(key_to_display_name(Key::KEY_SPACE), "Space");
+    }
+
+    #[test]
+    fn test_is_modifier() {
+        assert!(is_modifier(Key::KEY_LEFTCTRL));
+        assert!(is_modifier(Key::KEY_RIGHTSHIFT));
+        assert!(!is_modifier(Key::KEY_A));
+    }
+
+    #[test]
+    fn test_normalize_modifier() {
+        assert_eq!(normalize_modifier(Key::KEY_RIGHTCTRL), Key::KEY_LEFTCTRL);
+        assert_eq!(normalize_modifier(Key::KEY_A), Key::KEY_A);
+    }
+}

@@ -1,0 +1,50 @@
+[package]
+name = "keystroke"
+version = "0.1.0"
+edition = "2021"
+authors = ["linuxmobile"]
+description = "A GTK4 Layer Shell keystroke visualizer for Wayland compositors"
+license = "MIT"
+repository = "https://github.com/linuxmobile/keystroke"
+keywords = ["wayland", "gtk4", "layer-shell", "keyboard", "screencast"]
+categories = ["gui", "visualization"]
+
+[dependencies]
+# GTK4 and Layer Shell
+gtk4 = { version = "0.9", features = ["v4_12"] }
+gtk4-layer-shell = "0.4"
+glib = "0.21"
+
+# Input handling
+evdev = "0.12"
+nix = { version = "0.29", features = ["fs", "poll"] }
+
+# Async runtime for input
+tokio = { version = "1", features = ["rt", "sync", "macros"] }
+async-channel = "2.3"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Configuration
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+dirs = "6.0"
+
+# System tray
+ksni = "0.2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
