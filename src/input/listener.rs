@@ -9,7 +9,7 @@ use std::os::fd::{AsRawFd, BorrowedFd};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, trace, warn};
 
 #[derive(Debug, Clone)]
 pub enum KeyEvent {
@@ -150,11 +150,11 @@ fn process_events(
 
             let key_event = match event.value() {
                 1 => {
-                    debug!("Key pressed: {:?}", key);
+                    trace!("Key pressed: {:?}", key);
                     KeyEvent::Pressed(key_display)
                 }
                 0 => {
-                    debug!("Key released: {:?}", key);
+                    trace!("Key released: {:?}", key);
                     KeyEvent::Released(key_display)
                 }
                 2 => KeyEvent::Pressed(key_display),
@@ -162,7 +162,7 @@ fn process_events(
             };
 
             if sender.try_send(key_event).is_err() {
-                debug!("Channel full, dropping event");
+                warn!("Channel full, dropping event");
             }
         }
     }

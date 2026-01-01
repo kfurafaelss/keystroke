@@ -11,7 +11,6 @@ const DEFAULT_MARGIN_Y: i32 = 20;
 #[derive(Debug)]
 struct DragState {
     start_x: Cell<i32>,
-
     start_y: Cell<i32>,
 }
 
@@ -30,6 +29,9 @@ pub fn setup_drag(window: &ApplicationWindow) {
     window.set_anchor(Edge::Bottom, false);
     window.set_anchor(Edge::Right, false);
 
+    window.set_margin(Edge::Left, DEFAULT_MARGIN_X);
+    window.set_margin(Edge::Top, DEFAULT_MARGIN_Y);
+
     let drag_state = Rc::new(DragState::default());
 
     let gesture = GestureDrag::new();
@@ -38,13 +40,16 @@ pub fn setup_drag(window: &ApplicationWindow) {
     let state = Rc::clone(&drag_state);
     let win = window.clone();
     gesture.connect_drag_begin(move |_, _, _| {
-        let current_x = win.margin(Edge::Left);
-        let current_y = win.margin(Edge::Top);
+        let current_margin_x = win.margin(Edge::Left);
+        let current_margin_y = win.margin(Edge::Top);
 
-        state.start_x.set(current_x);
-        state.start_y.set(current_y);
+        state.start_x.set(current_margin_x);
+        state.start_y.set(current_margin_y);
 
-        debug!("Drag started at position ({}, {})", current_x, current_y);
+        debug!(
+            "Drag started at margin ({}, {})",
+            current_margin_x, current_margin_y
+        );
     });
 
     let state = Rc::clone(&drag_state);

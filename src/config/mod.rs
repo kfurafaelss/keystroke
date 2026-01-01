@@ -98,6 +98,10 @@ pub struct Config {
     pub font_scale: f64,
 
     pub opacity: f64,
+
+    pub keystroke_font_size: f64,
+
+    pub bubble_font_size: f64,
 }
 
 impl Default for Config {
@@ -113,6 +117,8 @@ impl Default for Config {
             all_keyboards: true,
             font_scale: 1.0,
             opacity: 0.9,
+            keystroke_font_size: 1.2,
+            bubble_font_size: 1.0,
         }
     }
 }

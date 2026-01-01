@@ -13,6 +13,8 @@ use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info};
 
@@ -35,6 +37,8 @@ struct RuntimeState {
     launcher_window: Option<ApplicationWindow>,
 
     settings_window: Option<ApplicationWindow>,
+
+    mode_active: Option<Arc<AtomicBool>>,
 }
 
 impl App {
@@ -159,6 +163,11 @@ fn switch_mode(
 
 fn close_mode_windows(state: &Rc<RefCell<RuntimeState>>) {
     let mut s = state.borrow_mut();
+
+    if let Some(active) = s.mode_active.take() {
+        active.store(false, Ordering::SeqCst);
+    }
+
     if let Some(window) = s.keystroke_window.take() {
         window.close();
     }
@@ -279,7 +288,7 @@ fn start_keystroke_mode(
 
     window.set_child(Some(display.borrow().widget()));
 
-    let (sender, receiver) = bounded::<KeyEvent>(256);
+    let (sender, receiver) = bounded::<KeyEvent>(1024);
 
     let listener_config = ListenerConfig {
         all_keyboards: config.all_keyboards,
@@ -288,16 +297,21 @@ fn start_keystroke_mode(
 
     let listener = KeyListener::new(sender, listener_config);
 
+    let mode_active = Arc::new(AtomicBool::new(true));
+    state.borrow_mut().mode_active = Some(Arc::clone(&mode_active));
+
     if let Err(e) = listener.start() {
         error!("Failed to start key listener: {}", e);
         let error_label = gtk4::Label::new(Some(&format!("Error: {}", e)));
         window.set_child(Some(&error_label));
     } else {
+        let active = Arc::clone(&mode_active);
         let state_clone = Rc::clone(&state);
-        setup_keystroke_event_processing(display.clone(), receiver, state_clone);
+        setup_keystroke_event_processing(display.clone(), receiver, state_clone, active);
 
+        let active = Arc::clone(&mode_active);
         let state_clone = Rc::clone(&state);
-        setup_keystroke_cleanup_timer(display.clone(), window.clone(), state_clone);
+        setup_keystroke_cleanup_timer(display.clone(), window.clone(), state_clone, active);
     }
 
     state.borrow_mut().keystroke_window = Some(window.clone());
@@ -324,7 +338,7 @@ fn start_bubble_mode(
 
     window.set_child(Some(display.borrow().widget()));
 
-    let (sender, receiver) = bounded::<KeyEvent>(256);
+    let (sender, receiver) = bounded::<KeyEvent>(1024);
 
     let listener_config = ListenerConfig {
         all_keyboards: config.all_keyboards,
@@ -333,16 +347,21 @@ fn start_bubble_mode(
 
     let listener = KeyListener::new(sender, listener_config);
 
+    let mode_active = Arc::new(AtomicBool::new(true));
+    state.borrow_mut().mode_active = Some(Arc::clone(&mode_active));
+
     if let Err(e) = listener.start() {
         error!("Failed to start key listener: {}", e);
         let error_label = gtk4::Label::new(Some(&format!("Error: {}", e)));
         window.set_child(Some(&error_label));
     } else {
+        let active = Arc::clone(&mode_active);
         let state_clone = Rc::clone(&state);
-        setup_bubble_event_processing(display.clone(), receiver, state_clone);
+        setup_bubble_event_processing(display.clone(), receiver, state_clone, active);
 
+        let active = Arc::clone(&mode_active);
         let state_clone = Rc::clone(&state);
-        setup_bubble_cleanup_timer(display.clone(), window.clone(), state_clone);
+        setup_bubble_cleanup_timer(display.clone(), window.clone(), state_clone, active);
     }
 
     state.borrow_mut().bubble_window = Some(window.clone());
@@ -356,8 +375,13 @@ fn setup_keystroke_event_processing(
     display: Rc<RefCell<KeyDisplayWidget>>,
     receiver: Receiver<KeyEvent>,
     state: Rc<RefCell<RuntimeState>>,
+    mode_active: Arc<AtomicBool>,
 ) {
     glib::timeout_add_local(Duration::from_millis(16), move || {
+        if !mode_active.load(Ordering::SeqCst) {
+            return ControlFlow::Break;
+        }
+
         if state.borrow().paused {
             return ControlFlow::Continue;
         }
@@ -382,33 +406,17 @@ fn setup_keystroke_event_processing(
     });
 }
 
-fn setup_bubble_event_processing(
-    display: Rc<RefCell<BubbleDisplayWidget>>,
-    receiver: Receiver<KeyEvent>,
-    state: Rc<RefCell<RuntimeState>>,
-) {
-    glib::timeout_add_local(Duration::from_millis(16), move || {
-        if state.borrow().paused {
-            return ControlFlow::Continue;
-        }
-
-        while let Ok(event) = receiver.try_recv() {
-            if let KeyEvent::Pressed(key) = event {
-                let mut display = display.borrow_mut();
-                display.process_key(key);
-            }
-        }
-
-        ControlFlow::Continue
-    });
-}
-
 fn setup_keystroke_cleanup_timer(
     display: Rc<RefCell<KeyDisplayWidget>>,
     window: ApplicationWindow,
     state: Rc<RefCell<RuntimeState>>,
+    mode_active: Arc<AtomicBool>,
 ) {
     glib::timeout_add_local(Duration::from_millis(100), move || {
+        if !mode_active.load(Ordering::SeqCst) {
+            return ControlFlow::Break;
+        }
+
         if state.borrow().paused {
             return ControlFlow::Continue;
         }
@@ -416,10 +424,53 @@ fn setup_keystroke_cleanup_timer(
         let mut display = display.borrow_mut();
         display.remove_expired();
 
-        if !display.has_keys() {
-            window.set_visible(false);
-        } else {
+        if display.has_keys() {
+            window.remove_css_class("fading-out");
             window.set_visible(true);
+        } else {
+            // Add fading class for CSS transition
+            if !window.has_css_class("fading-out") {
+                window.add_css_class("fading-out");
+                // Hide after animation completes (200ms)
+                let w = window.clone();
+                glib::timeout_add_local_once(Duration::from_millis(200), move || {
+                    if w.has_css_class("fading-out") {
+                        w.set_visible(false);
+                    }
+                });
+            }
+        }
+
+        ControlFlow::Continue
+    });
+}
+
+fn setup_bubble_event_processing(
+    display: Rc<RefCell<BubbleDisplayWidget>>,
+    receiver: Receiver<KeyEvent>,
+    state: Rc<RefCell<RuntimeState>>,
+    mode_active: Arc<AtomicBool>,
+) {
+    glib::timeout_add_local(Duration::from_millis(16), move || {
+        if !mode_active.load(Ordering::SeqCst) {
+            return ControlFlow::Break;
+        }
+
+        if state.borrow().paused {
+            return ControlFlow::Continue;
+        }
+
+        while let Ok(event) = receiver.try_recv() {
+            let mut display = display.borrow_mut();
+            match event {
+                KeyEvent::Pressed(key) => {
+                    display.process_key(key);
+                }
+                KeyEvent::Released(key) => {
+                    display.process_key_release(key);
+                }
+                KeyEvent::AllReleased => {}
+            }
         }
 
         ControlFlow::Continue
@@ -430,8 +481,13 @@ fn setup_bubble_cleanup_timer(
     display: Rc<RefCell<BubbleDisplayWidget>>,
     window: ApplicationWindow,
     state: Rc<RefCell<RuntimeState>>,
+    mode_active: Arc<AtomicBool>,
 ) {
     glib::timeout_add_local(Duration::from_millis(100), move || {
+        if !mode_active.load(Ordering::SeqCst) {
+            return ControlFlow::Break;
+        }
+
         if state.borrow().paused {
             return ControlFlow::Continue;
         }
@@ -439,10 +495,21 @@ fn setup_bubble_cleanup_timer(
         let mut display = display.borrow_mut();
         display.remove_expired();
 
-        if display.has_content() {
+        if display.should_show() {
+            window.remove_css_class("fading-out");
             window.set_visible(true);
         } else {
-            window.set_visible(false);
+            // Add fading class for CSS transition
+            if !window.has_css_class("fading-out") {
+                window.add_css_class("fading-out");
+                // Hide after animation completes (200ms)
+                let w = window.clone();
+                glib::timeout_add_local_once(Duration::from_millis(200), move || {
+                    if w.has_css_class("fading-out") {
+                        w.set_visible(false);
+                    }
+                });
+            }
         }
 
         ControlFlow::Continue

@@ -5,67 +5,83 @@ use gtk4::{Application, ApplicationWindow, CssProvider};
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use tracing::info;
 
-const OVERLAY_CSS: &str = r#"
-.keystroke-window {
+fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> String {
+    format!(
+        r#"
+.keystroke-window {{
     background-color: @window_bg_color;
     border-radius: 12px;
     padding: 8px 16px;
     border: 1px solid @borders;
-}
+    transition: opacity 200ms ease-in-out;
+}}
 
-.keystroke-container {
+.keystroke-window.fading-out {{
+    opacity: 0;
+}}
+
+.keystroke-container {{
     padding: 4px;
-}
+}}
 
-.keystroke-key {
+.keystroke-key {{
     background-color: @card_bg_color;
     color: @card_fg_color;
     border-radius: 8px;
     padding: 8px 14px;
     margin: 4px;
     font-weight: bold;
-    font-size: 1.2em;
+    font-size: {keystroke_font_size}em;
     border: 1px solid @borders;
     min-width: 32px;
-}
+}}
 
-.keystroke-key.modifier {
+.keystroke-key.modifier {{
     background-color: @accent_bg_color;
     color: @accent_fg_color;
-}
+}}
 
-.keystroke-key.fading {
+.keystroke-key.fading {{
     opacity: 0.6;
-}
+}}
 
-.keystroke-separator {
+.keystroke-separator {{
     color: @window_fg_color;
     font-weight: bold;
     padding: 0 4px;
-}
+}}
 
 /* Bubble chat styles */
-.bubble-window {
+.bubble-window {{
     background-color: transparent;
     padding: 0;
     border: none;
-}
+    transition: opacity 200ms ease-in-out;
+}}
 
-.bubble-container {
+.bubble-window.fading-out {{
+    opacity: 0;
+}}
+
+.bubble-container {{
     padding: 8px;
     background-color: transparent;
-}
+}}
 
-.bubble {
-    background-color: rgba(245, 245, 245, 0.95);
+.bubble {{
+    background-color: @card_bg_color;
+    color: @card_fg_color;
     border-radius: 18px;
     padding: 10px 16px;
     margin: 4px 0;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    color: #1a1a1a;
-    font-size: 1.0em;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    font-size: {bubble_font_size}em;
+}}
+"#,
+        keystroke_font_size = keystroke_font_size,
+        bubble_font_size = bubble_font_size
+    )
 }
-"#;
 
 pub fn create_window(app: &Application, config: &Config) -> Result<ApplicationWindow> {
     let window = ApplicationWindow::builder()
@@ -93,7 +109,7 @@ pub fn create_window(app: &Application, config: &Config) -> Result<ApplicationWi
 
     window.set_exclusive_zone(0);
 
-    apply_css(&window);
+    apply_css(&window, config);
 
     window.add_css_class("keystroke-window");
 
@@ -105,9 +121,10 @@ pub fn create_window(app: &Application, config: &Config) -> Result<ApplicationWi
     Ok(window)
 }
 
-fn apply_css(window: &ApplicationWindow) {
+fn apply_css(window: &ApplicationWindow, config: &Config) {
     let provider = CssProvider::new();
-    provider.load_from_string(OVERLAY_CSS);
+    let css = generate_overlay_css(config.keystroke_font_size, config.bubble_font_size);
+    provider.load_from_string(&css);
 
     let display = gtk4::prelude::WidgetExt::display(window);
 
@@ -157,7 +174,7 @@ pub fn create_bubble_window(app: &Application, config: &Config) -> Result<Applic
 
     window.set_exclusive_zone(0);
 
-    apply_css(&window);
+    apply_css(&window, config);
 
     window.add_css_class("bubble-window");
 

@@ -1,17 +1,14 @@
 use gtk4::prelude::*;
 use gtk4::Box as GtkBox;
 use gtk4::{Application, ApplicationWindow, Button, CssProvider, Label, Orientation};
-use gtk4_layer_shell::{Edge, Layer, LayerShell};
-use std::cell::Cell;
 use std::rc::Rc;
 use tracing::debug;
 
 const LAUNCHER_CSS: &str = r#"
 .launcher-window {
     background-color: @window_bg_color;
-    border-radius: 16px;
+    border-radius: 12px;
     padding: 16px 24px;
-    border: 1px solid @borders;
 }
 
 .launcher-title {
@@ -56,48 +53,17 @@ pub enum DisplayMode {
     Bubble,
 }
 
-#[derive(Debug)]
-struct DragState {
-    start_x: Cell<i32>,
-    start_y: Cell<i32>,
-}
-
-impl Default for DragState {
-    fn default() -> Self {
-        Self {
-            start_x: Cell::new(100),
-            start_y: Cell::new(100),
-        }
-    }
-}
-
 pub fn create_launcher_window(
     app: &Application,
     on_select: impl Fn(DisplayMode) + 'static,
 ) -> ApplicationWindow {
     let window = ApplicationWindow::builder()
         .application(app)
-        .decorated(false)
+        .title("Keystroke - Select Mode")
+        .default_width(350)
+        .default_height(150)
         .resizable(false)
         .build();
-
-    window.init_layer_shell();
-
-    window.set_layer(Layer::Overlay);
-
-    window.set_namespace("keystroke-launcher");
-
-    window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::None);
-
-    window.set_anchor(Edge::Top, true);
-    window.set_anchor(Edge::Left, true);
-    window.set_anchor(Edge::Bottom, false);
-    window.set_anchor(Edge::Right, false);
-
-    window.set_margin(Edge::Top, 200);
-    window.set_margin(Edge::Left, 400);
-
-    window.set_exclusive_zone(0);
 
     apply_launcher_css(&window);
 
@@ -105,8 +71,6 @@ pub fn create_launcher_window(
 
     let content = create_launcher_content(&window, on_select);
     window.set_child(Some(&content));
-
-    setup_launcher_drag(&window);
 
     window
 }
@@ -133,6 +97,10 @@ fn create_launcher_content(
         .spacing(8)
         .halign(gtk4::Align::Center)
         .valign(gtk4::Align::Center)
+        .margin_top(16)
+        .margin_bottom(16)
+        .margin_start(16)
+        .margin_end(16)
         .build();
 
     container.add_css_class("launcher-container");
@@ -174,40 +142,6 @@ fn create_launcher_content(
     container.append(&button_box);
 
     container
-}
-
-fn setup_launcher_drag(window: &ApplicationWindow) {
-    let drag_state = Rc::new(DragState::default());
-
-    let gesture = gtk4::GestureDrag::new();
-    gesture.set_button(1);
-
-    let state = Rc::clone(&drag_state);
-    let win = window.clone();
-    gesture.connect_drag_begin(move |_, _, _| {
-        let current_x = win.margin(Edge::Left);
-        let current_y = win.margin(Edge::Top);
-
-        state.start_x.set(current_x);
-        state.start_y.set(current_y);
-
-        debug!("Launcher drag started at ({}, {})", current_x, current_y);
-    });
-
-    let state = Rc::clone(&drag_state);
-    let win = window.clone();
-    gesture.connect_drag_update(move |_, offset_x, offset_y| {
-        let start_x = state.start_x.get();
-        let start_y = state.start_y.get();
-
-        let new_x = (start_x + offset_x as i32).max(0);
-        let new_y = (start_y + offset_y as i32).max(0);
-
-        win.set_margin(Edge::Left, new_x);
-        win.set_margin(Edge::Top, new_y);
-    });
-
-    window.add_controller(gesture);
 }
 
 pub fn show_launcher(window: &ApplicationWindow) {
