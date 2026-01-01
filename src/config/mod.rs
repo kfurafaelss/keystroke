@@ -7,6 +7,8 @@ use tracing::{debug, info, warn};
 
 const DEFAULT_DISPLAY_TIMEOUT_MS: u64 = 2000;
 
+const DEFAULT_BUBBLE_TIMEOUT_MS: u64 = 10000;
+
 const DEFAULT_MAX_KEYS: usize = 5;
 
 const DEFAULT_MARGIN: i32 = 20;
@@ -83,6 +85,8 @@ pub struct Config {
 
     pub display_timeout_ms: u64,
 
+    pub bubble_timeout_ms: u64,
+
     pub max_keys: usize,
 
     pub margin: i32,
@@ -102,6 +106,7 @@ impl Default for Config {
             display_mode: DisplayMode::Keystroke,
             position: Position::BottomCenter,
             display_timeout_ms: DEFAULT_DISPLAY_TIMEOUT_MS,
+            bubble_timeout_ms: DEFAULT_BUBBLE_TIMEOUT_MS,
             max_keys: DEFAULT_MAX_KEYS,
             margin: DEFAULT_MARGIN,
             show_modifiers: true,

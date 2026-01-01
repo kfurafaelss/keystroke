@@ -43,6 +43,28 @@ const OVERLAY_CSS: &str = r#"
     font-weight: bold;
     padding: 0 4px;
 }
+
+/* Bubble chat styles */
+.bubble-window {
+    background-color: transparent;
+    padding: 0;
+    border: none;
+}
+
+.bubble-container {
+    padding: 8px;
+    background-color: transparent;
+}
+
+.bubble {
+    background-color: rgba(245, 245, 245, 0.95);
+    border-radius: 18px;
+    padding: 10px 16px;
+    margin: 4px 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    color: #1a1a1a;
+    font-size: 1.0em;
+}
 "#;
 
 pub fn create_window(app: &Application, config: &Config) -> Result<ApplicationWindow> {
@@ -106,4 +128,40 @@ pub fn update_position(window: &ApplicationWindow, position: Position, margin: i
     window.set_margin(Edge::Bottom, margin);
     window.set_margin(Edge::Left, margin);
     window.set_margin(Edge::Right, margin);
+}
+
+pub fn create_bubble_window(app: &Application, config: &Config) -> Result<ApplicationWindow> {
+    let window = ApplicationWindow::builder()
+        .application(app)
+        .decorated(false)
+        .resizable(false)
+        .build();
+
+    window.init_layer_shell();
+
+    window.set_layer(Layer::Overlay);
+
+    window.set_namespace("keystroke-bubble");
+
+    window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::None);
+
+    window.set_anchor(Edge::Top, false);
+    window.set_anchor(Edge::Bottom, true);
+    window.set_anchor(Edge::Left, true);
+    window.set_anchor(Edge::Right, false);
+
+    window.set_margin(Edge::Top, config.margin);
+    window.set_margin(Edge::Bottom, config.margin + 100);
+    window.set_margin(Edge::Left, config.margin);
+    window.set_margin(Edge::Right, config.margin);
+
+    window.set_exclusive_zone(0);
+
+    apply_css(&window);
+
+    window.add_css_class("bubble-window");
+
+    info!("Created bubble window");
+
+    Ok(window)
 }

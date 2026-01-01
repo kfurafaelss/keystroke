@@ -24,6 +24,7 @@
           wayland
           wayland-protocols
           dbus
+          libappindicator-gtk3
         ];
 
         buildInputs = with pkgs; [
@@ -34,6 +35,7 @@
           wayland-protocols
           pkg-config
           dbus
+          libappindicator-gtk3
         ];
 
         nativeBuildInputs = with pkgs; [

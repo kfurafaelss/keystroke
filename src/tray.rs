@@ -1,31 +1,21 @@
+use async_channel::Sender;
 use ksni::{self, menu::StandardItem, Icon, MenuItem, Tray, TrayService};
-use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info};
 
 #[derive(Debug, Clone)]
 pub enum TrayAction {
     ShowLauncher,
-
     KeystrokeMode,
-
     BubbleMode,
-
     OpenSettings,
-
     TogglePause,
-
     Quit,
 }
 
+#[derive(Default)]
 pub struct TrayState {
     pub paused: bool,
-}
-
-impl Default for TrayState {
-    fn default() -> Self {
-        Self { paused: false }
-    }
 }
 
 struct KeystrokeTray {
@@ -63,7 +53,7 @@ impl Tray for KeystrokeTray {
 
     fn activate(&mut self, _x: i32, _y: i32) {
         debug!("Tray left-clicked: showing launcher");
-        if let Err(e) = self.action_sender.send(TrayAction::ShowLauncher) {
+        if let Err(e) = self.action_sender.send_blocking(TrayAction::ShowLauncher) {
             error!("Failed to send tray action: {}", e);
         }
     }
@@ -78,7 +68,7 @@ impl Tray for KeystrokeTray {
                 label: "Keystroke Mode".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     debug!("Tray: Keystroke mode selected");
-                    let _ = tray.action_sender.send(TrayAction::KeystrokeMode);
+                    let _ = tray.action_sender.send_blocking(TrayAction::KeystrokeMode);
                 }),
                 ..Default::default()
             }),
@@ -86,7 +76,7 @@ impl Tray for KeystrokeTray {
                 label: "Bubble Mode".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     debug!("Tray: Bubble mode selected");
-                    let _ = tray.action_sender.send(TrayAction::BubbleMode);
+                    let _ = tray.action_sender.send_blocking(TrayAction::BubbleMode);
                 }),
                 ..Default::default()
             }),
@@ -95,7 +85,7 @@ impl Tray for KeystrokeTray {
                 label: "Settings".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     debug!("Tray: Settings selected");
-                    let _ = tray.action_sender.send(TrayAction::OpenSettings);
+                    let _ = tray.action_sender.send_blocking(TrayAction::OpenSettings);
                 }),
                 ..Default::default()
             }),
@@ -103,7 +93,7 @@ impl Tray for KeystrokeTray {
                 label: pause_label.to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     debug!("Tray: Toggle pause selected");
-                    let _ = tray.action_sender.send(TrayAction::TogglePause);
+                    let _ = tray.action_sender.send_blocking(TrayAction::TogglePause);
                 }),
                 ..Default::default()
             }),
@@ -112,7 +102,7 @@ impl Tray for KeystrokeTray {
                 label: "Quit".to_string(),
                 activate: Box::new(|tray: &mut Self| {
                     debug!("Tray: Quit selected");
-                    let _ = tray.action_sender.send(TrayAction::Quit);
+                    let _ = tray.action_sender.send_blocking(TrayAction::Quit);
                 }),
                 ..Default::default()
             }),
@@ -120,20 +110,19 @@ impl Tray for KeystrokeTray {
     }
 }
 
+#[derive(Clone)]
 pub struct TrayHandle {
-    service: TrayService<KeystrokeTray>,
-    #[allow(dead_code)]
+    service_handle: ksni::Handle<KeystrokeTray>,
     state: Arc<Mutex<TrayState>>,
 }
 
 impl TrayHandle {
-    #[allow(dead_code)]
     pub fn set_paused(&self, paused: bool) {
         if let Ok(mut state) = self.state.lock() {
             state.paused = paused;
         }
-
-        self.service.handle().update(|_| {});
+        // Trigger menu refresh to update Pause/Resume label
+        self.service_handle.update(|_| {});
     }
 
     #[allow(dead_code)]
@@ -142,8 +131,9 @@ impl TrayHandle {
     }
 }
 
-pub fn start_tray() -> anyhow::Result<(mpsc::Receiver<TrayAction>, TrayHandle)> {
-    let (sender, receiver) = mpsc::channel();
+/// Start the system tray and return a receiver for actions
+pub fn start_tray() -> anyhow::Result<(async_channel::Receiver<TrayAction>, TrayHandle)> {
+    let (sender, receiver) = async_channel::bounded(32);
     let state = Arc::new(Mutex::new(TrayState::default()));
 
     let tray = KeystrokeTray {
@@ -152,16 +142,15 @@ pub fn start_tray() -> anyhow::Result<(mpsc::Receiver<TrayAction>, TrayHandle)> 
     };
 
     let service = TrayService::new(tray);
-    let handle = TrayHandle { service, state };
+    let handle = TrayHandle {
+        service_handle: service.handle(),
+        state,
+    };
 
-    handle.service.handle().update(|_| {});
+    // Spawn the service to actually register it with D-Bus
+    service.spawn();
 
     info!("System tray started");
 
     Ok((receiver, handle))
-}
-
-#[allow(dead_code)]
-pub fn spawn_tray_service(_handle: &TrayHandle) {
-    debug!("Tray service is running");
 }
