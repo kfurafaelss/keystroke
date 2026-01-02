@@ -1,4 +1,5 @@
 mod app;
+pub mod compositor;
 mod config;
 mod input;
 mod tray;
@@ -14,6 +15,9 @@ fn main() -> Result<()> {
 
     info!("Starting Keystroke v{}", env!("CARGO_PKG_VERSION"));
 
+    let compositor = compositor::detect();
+    info!("Detected compositor: {}", compositor);
+
     let config = Config::load().unwrap_or_else(|e| {
         warn!("Failed to load config: {}, using defaults", e);
         Config::default()
@@ -22,6 +26,15 @@ fn main() -> Result<()> {
     config.validate()?;
 
     info!("Configuration loaded: {:?}", config.position);
+
+    if config.auto_detect_layout {
+        let layout_manager = input::LayoutManager::new();
+        if let Err(e) = layout_manager.init() {
+            warn!("Failed to initialize layout detection: {}", e);
+        } else if let Some(layout) = layout_manager.current_layout_name() {
+            info!("Detected keyboard layout: {}", layout);
+        }
+    }
 
     match tray::start_tray() {
         Ok((tray_rx, tray_handle)) => {

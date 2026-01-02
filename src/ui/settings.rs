@@ -148,28 +148,23 @@ pub fn create_settings_window(
 
     let config_ref = config.borrow();
 
-    // Main container
     let main_box = GtkBox::builder()
         .orientation(Orientation::Vertical)
         .spacing(0)
         .build();
 
-    // Notebook for tabs
     let notebook = Notebook::new();
     notebook.set_vexpand(true);
 
-    // ====== General Tab ======
     let general_page = create_general_tab(&config_ref);
     notebook.append_page(&general_page.container, Some(&Label::new(Some("General"))));
 
-    // ====== Keystroke Tab ======
     let keystroke_page = create_keystroke_tab(&config_ref);
     notebook.append_page(
         &keystroke_page.container,
         Some(&Label::new(Some("Keystroke"))),
     );
 
-    // ====== Bubble Tab ======
     let bubble_page = create_bubble_tab(&config_ref);
     notebook.append_page(&bubble_page.container, Some(&Label::new(Some("Bubble"))));
 
@@ -177,7 +172,6 @@ pub fn create_settings_window(
 
     drop(config_ref);
 
-    // Button box
     let button_box = GtkBox::builder()
         .orientation(Orientation::Horizontal)
         .spacing(12)
@@ -195,13 +189,11 @@ pub fn create_settings_window(
 
     window.set_child(Some(&main_box));
 
-    // Cancel button
     let window_clone = window.clone();
     cancel_btn.connect_clicked(move |_| {
         window_clone.close();
     });
 
-    // Save button
     let window_clone = window.clone();
     let config_clone = config.clone();
     save_btn.connect_clicked(move |_| {
@@ -258,7 +250,6 @@ fn create_general_tab(config: &Config) -> GeneralTabWidgets {
         .build();
     container.add_css_class("settings-content");
 
-    // Position
     let position_section = create_section("Position");
     let position_row = create_row();
     let position_label = create_label("Overlay Position");
@@ -278,7 +269,6 @@ fn create_general_tab(config: &Config) -> GeneralTabWidgets {
     position_section.append(&position_row);
     container.append(&position_section);
 
-    // Margin
     let margin_section = create_section("Window Margin");
     let margin_row = create_row();
     let margin_label = create_label("Margin (pixels)");
@@ -292,7 +282,6 @@ fn create_general_tab(config: &Config) -> GeneralTabWidgets {
     margin_section.append(&margin_row);
     container.append(&margin_section);
 
-    // Opacity
     let opacity_section = create_section("Appearance");
     let opacity_row = create_row();
     let opacity_label_box = GtkBox::builder()
@@ -343,7 +332,6 @@ fn create_keystroke_tab(config: &Config) -> KeystrokeTabWidgets {
         .build();
     container.add_css_class("settings-content");
 
-    // Timeout
     let timeout_section = create_section("Display Timeout");
     let timeout_row = create_row();
     let timeout_label_box = GtkBox::builder()
@@ -375,7 +363,6 @@ fn create_keystroke_tab(config: &Config) -> KeystrokeTabWidgets {
     timeout_section.append(&timeout_row);
     container.append(&timeout_section);
 
-    // Max Keys
     let max_keys_section = create_section("Key Display");
     let max_keys_row = create_row();
     let max_keys_label_box = GtkBox::builder()
@@ -398,7 +385,6 @@ fn create_keystroke_tab(config: &Config) -> KeystrokeTabWidgets {
     max_keys_section.append(&max_keys_row);
     container.append(&max_keys_section);
 
-    // Font Size
     let font_section = create_section("Typography");
     let font_row = create_row();
     let font_label_box = GtkBox::builder()
@@ -448,7 +434,6 @@ fn create_bubble_tab(config: &Config) -> BubbleTabWidgets {
         .build();
     container.add_css_class("settings-content");
 
-    // Timeout
     let timeout_section = create_section("Display Timeout");
     let timeout_row = create_row();
     let timeout_label_box = GtkBox::builder()
@@ -480,7 +465,6 @@ fn create_bubble_tab(config: &Config) -> BubbleTabWidgets {
     timeout_section.append(&timeout_row);
     container.append(&timeout_section);
 
-    // Font Size
     let font_section = create_section("Typography");
     let font_row = create_row();
     let font_label_box = GtkBox::builder()

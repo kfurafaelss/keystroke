@@ -1,4 +1,4 @@
-use crate::input::KeyDisplay;
+use crate::input::{KeyDisplay, XkbState};
 use evdev::Key;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Label, Orientation};
@@ -11,10 +11,8 @@ const MAX_CHARS_PER_LINE: usize = 45;
 
 const NEW_BUBBLE_TIMEOUT_MS: u64 = 3000;
 
-/// Tracks the state of modifier keys
 #[derive(Default)]
 struct ModifierState {
-    shift: bool,
     ctrl: bool,
     alt: bool,
     super_key: bool,
@@ -23,7 +21,6 @@ struct ModifierState {
 impl ModifierState {
     fn update(&mut self, key: Key, pressed: bool) {
         match key {
-            Key::KEY_LEFTSHIFT | Key::KEY_RIGHTSHIFT => self.shift = pressed,
             Key::KEY_LEFTCTRL | Key::KEY_RIGHTCTRL => self.ctrl = pressed,
             Key::KEY_LEFTALT | Key::KEY_RIGHTALT => self.alt = pressed,
             Key::KEY_LEFTMETA | Key::KEY_RIGHTMETA => self.super_key = pressed,
@@ -31,8 +28,6 @@ impl ModifierState {
         }
     }
 
-    /// Returns true if any "command" modifier is held (ctrl, alt, super)
-    /// These typically indicate shortcuts, not typing
     fn has_command_modifier(&self) -> bool {
         self.ctrl || self.alt || self.super_key
     }
@@ -131,13 +126,11 @@ fn is_ignored_key(key: Key) -> bool {
     )
 }
 
-fn key_to_char(key: Key, display_name: &str, shift_held: bool) -> Option<BubbleInput> {
+fn key_to_char(key: Key, xkb_state: &XkbState) -> Option<BubbleInput> {
     match key {
         Key::KEY_ENTER | Key::KEY_KPENTER => return Some(BubbleInput::NewLine),
         Key::KEY_BACKSPACE => return Some(BubbleInput::Backspace),
         Key::KEY_DELETE => return Some(BubbleInput::Backspace),
-        Key::KEY_SPACE => return Some(BubbleInput::Char(' ')),
-        Key::KEY_TAB => return Some(BubbleInput::Char(' ')),
         _ => {}
     }
 
@@ -145,60 +138,15 @@ fn key_to_char(key: Key, display_name: &str, shift_held: bool) -> Option<BubbleI
         return None;
     }
 
-    // Handle single character keys (letters and numbers)
-    if display_name.len() == 1 {
-        let c = display_name.chars().next().unwrap();
-
-        // For letters, respect shift state
-        if c.is_ascii_alphabetic() {
-            let c = if shift_held {
-                c.to_ascii_uppercase()
-            } else {
-                c.to_ascii_lowercase()
-            };
-            return Some(BubbleInput::Char(c));
+    if let Some(utf8) = xkb_state.key_get_utf8(key) {
+        let c = utf8.chars().next()?;
+        if c.is_control() && c != ' ' && c != '\t' {
+            return None;
         }
 
-        // For numbers with shift, show the shifted symbol
-        if c.is_ascii_digit() {
-            if shift_held {
-                let shifted = match c {
-                    '1' => '!',
-                    '2' => '@',
-                    '3' => '#',
-                    '4' => '$',
-                    '5' => '%',
-                    '6' => '^',
-                    '7' => '&',
-                    '8' => '*',
-                    '9' => '(',
-                    '0' => ')',
-                    _ => c,
-                };
-                return Some(BubbleInput::Char(shifted));
-            }
-            return Some(BubbleInput::Char(c));
+        if c == '\t' {
+            return Some(BubbleInput::Char(' '));
         }
-
-        // Handle single-character punctuation with shift
-        if shift_held {
-            let shifted = match c {
-                '-' => '_',
-                '=' => '+',
-                '[' => '{',
-                ']' => '}',
-                ';' => ':',
-                '\'' => '"',
-                '`' => '~',
-                '\\' => '|',
-                ',' => '<',
-                '.' => '>',
-                '/' => '?',
-                _ => c,
-            };
-            return Some(BubbleInput::Char(shifted));
-        }
-
         return Some(BubbleInput::Char(c));
     }
 
@@ -221,11 +169,11 @@ pub struct BubbleDisplayWidget {
 
     new_bubble_timeout: Duration,
 
-    /// Tracks current modifier key state
     modifiers: ModifierState,
 
-    /// Set to true when Enter is pressed - next char will start a new bubble
     want_new_bubble: bool,
+
+    xkb_state: XkbState,
 }
 
 impl BubbleDisplayWidget {
@@ -246,32 +194,45 @@ impl BubbleDisplayWidget {
             new_bubble_timeout: Duration::from_millis(NEW_BUBBLE_TIMEOUT_MS),
             modifiers: ModifierState::default(),
             want_new_bubble: false,
+            xkb_state: XkbState::new().expect("Failed to create XKB state"),
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn with_layout(display_timeout_ms: u64, layout_name: &str) -> Self {
+        let mut widget = Self::new(display_timeout_ms);
+        widget.set_layout(layout_name);
+        widget
+    }
+
+    pub fn set_layout(&mut self, layout_name: &str) {
+        self.xkb_state.set_layout(layout_name);
+    }
+
+    #[allow(dead_code)]
+    pub fn layout_name(&self) -> &str {
+        self.xkb_state.layout_name()
     }
 
     pub fn widget(&self) -> &GtkBox {
         &self.container
     }
 
-    /// Process a key press event
     pub fn process_key(&mut self, key: KeyDisplay) {
-        // Update modifier state for press
+        self.xkb_state.update_key(key.key, true);
         self.modifiers.update(key.key, true);
 
-        // If a command modifier (ctrl/alt/super) is held, ignore the key
-        // This prevents showing 'h', 'j', 'k', 'l' when using Super+hjkl for window management
         if self.modifiers.has_command_modifier() {
             return;
         }
 
-        let input = match key_to_char(key.key, &key.display_name, self.modifiers.shift) {
+        let input = match key_to_char(key.key, &self.xkb_state) {
             Some(input) => input,
             None => return,
         };
 
         match input {
             BubbleInput::Char(c) => {
-                // If we wanted a new bubble (from Enter), create it now
                 if self.want_new_bubble {
                     self.want_new_bubble = false;
                     if self.bubbles.back().is_some_and(|b| !b.is_empty()) {
@@ -299,7 +260,6 @@ impl BubbleDisplayWidget {
                 }
             }
             BubbleInput::NewLine => {
-                // Don't create empty bubble - just set flag for next character
                 if self.bubbles.back().is_some_and(|b| !b.is_empty()) {
                     self.want_new_bubble = true;
                 }
@@ -307,8 +267,8 @@ impl BubbleDisplayWidget {
         }
     }
 
-    /// Process a key release event to track modifier state
     pub fn process_key_release(&mut self, key: KeyDisplay) {
+        self.xkb_state.update_key(key.key, false);
         self.modifiers.update(key.key, false);
     }
 
@@ -366,16 +326,14 @@ impl BubbleDisplayWidget {
         self.bubbles.iter().any(|b| !b.is_empty())
     }
 
-    /// Returns true if the widget should be visible (has non-stale content)
     pub fn should_show(&self) -> bool {
         if self.bubbles.is_empty() {
             return false;
         }
 
-        // Check if any bubble has content and is not stale
-        self.bubbles.iter().any(|b| {
-            !b.is_empty() && !b.is_stale(self.display_duration)
-        })
+        self.bubbles
+            .iter()
+            .any(|b| !b.is_empty() && !b.is_stale(self.display_duration))
     }
 }
 
@@ -395,55 +353,92 @@ mod tests {
 
     #[test]
     fn test_key_to_char_regular_keys() {
-        // Without shift - lowercase
-        let result = key_to_char(Key::KEY_A, "A", false);
+        let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+
+        let result = key_to_char(Key::KEY_A, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('a'))));
 
-        // With shift - uppercase
-        let result = key_to_char(Key::KEY_A, "A", true);
+        let result = key_to_char(Key::KEY_1, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('1'))));
+    }
+
+    #[test]
+    fn test_key_to_char_with_shift() {
+        let mut xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+
+        xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
+
+        let result = key_to_char(Key::KEY_A, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('A'))));
 
-        let result = key_to_char(Key::KEY_1, "1", false);
-        assert!(matches!(result, Some(BubbleInput::Char('1'))));
-
-        // Shift + 1 = !
-        let result = key_to_char(Key::KEY_1, "1", true);
+        let result = key_to_char(Key::KEY_1, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('!'))));
     }
 
     #[test]
     fn test_key_to_char_special_keys() {
-        let result = key_to_char(Key::KEY_ENTER, "Enter", false);
+        let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+
+        let result = key_to_char(Key::KEY_ENTER, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::NewLine)));
 
-        let result = key_to_char(Key::KEY_BACKSPACE, "Backspace", false);
+        let result = key_to_char(Key::KEY_BACKSPACE, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Backspace)));
 
-        let result = key_to_char(Key::KEY_SPACE, "Space", false);
+        let result = key_to_char(Key::KEY_SPACE, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char(' '))));
     }
 
     #[test]
     fn test_key_to_char_modifiers_ignored() {
-        assert!(key_to_char(Key::KEY_LEFTCTRL, "Ctrl", false).is_none());
-        assert!(key_to_char(Key::KEY_LEFTALT, "Alt", false).is_none());
-        assert!(key_to_char(Key::KEY_LEFTMETA, "Super", false).is_none());
+        let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+
+        assert!(key_to_char(Key::KEY_LEFTCTRL, &xkb_state).is_none());
+        assert!(key_to_char(Key::KEY_LEFTALT, &xkb_state).is_none());
+        assert!(key_to_char(Key::KEY_LEFTMETA, &xkb_state).is_none());
     }
 
     #[test]
     fn test_key_to_char_punctuation() {
-        // Without shift
-        let result = key_to_char(Key::KEY_MINUS, "-", false);
+        let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+
+        let result = key_to_char(Key::KEY_MINUS, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('-'))));
 
-        let result = key_to_char(Key::KEY_DOT, ".", false);
+        let result = key_to_char(Key::KEY_DOT, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('.'))));
+    }
 
-        // With shift
-        let result = key_to_char(Key::KEY_MINUS, "-", true);
+    #[test]
+    fn test_key_to_char_punctuation_with_shift() {
+        let mut xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+        xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
+
+        let result = key_to_char(Key::KEY_MINUS, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('_'))));
 
-        let result = key_to_char(Key::KEY_DOT, ".", true);
+        let result = key_to_char(Key::KEY_DOT, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('>'))));
+    }
+
+    #[test]
+    fn test_key_to_char_german_layout() {
+        let mut xkb_state = XkbState::from_layout_name(Some("German")).unwrap();
+        xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
+
+        let result = key_to_char(Key::KEY_2, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('"'))));
+
+        let result = key_to_char(Key::KEY_7, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('/'))));
+    }
+
+    #[test]
+    fn test_key_to_char_spanish_latam_layout() {
+        let mut xkb_state = XkbState::from_layout_name(Some("Spanish (Latin American)")).unwrap();
+        xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
+
+        let result = key_to_char(Key::KEY_2, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('"'))));
     }
 }

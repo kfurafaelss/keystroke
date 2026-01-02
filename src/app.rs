@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::input::{KeyEvent, KeyListener, ListenerConfig};
+use crate::input::{KeyEvent, KeyListener, LayoutManager, ListenerConfig};
 use crate::tray::{TrayAction, TrayHandle};
 use crate::ui::{
     create_bubble_window, create_launcher_window, create_settings_window, create_window,
@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub struct App {
     gtk_app: Application,
@@ -332,9 +332,15 @@ fn start_bubble_mode(
 
     setup_drag(&window);
 
-    let display = Rc::new(RefCell::new(BubbleDisplayWidget::new(
-        config.bubble_timeout_ms,
-    )));
+    let mut display = BubbleDisplayWidget::new(config.bubble_timeout_ms);
+
+    let layout_name = get_keyboard_layout(config);
+    if let Some(ref name) = layout_name {
+        info!("Using keyboard layout: {}", name);
+        display.set_layout(name);
+    }
+
+    let display = Rc::new(RefCell::new(display));
 
     window.set_child(Some(display.borrow().widget()));
 
@@ -428,10 +434,9 @@ fn setup_keystroke_cleanup_timer(
             window.remove_css_class("fading-out");
             window.set_visible(true);
         } else {
-            // Add fading class for CSS transition
             if !window.has_css_class("fading-out") {
                 window.add_css_class("fading-out");
-                // Hide after animation completes (200ms)
+
                 let w = window.clone();
                 glib::timeout_add_local_once(Duration::from_millis(200), move || {
                     if w.has_css_class("fading-out") {
@@ -499,10 +504,9 @@ fn setup_bubble_cleanup_timer(
             window.remove_css_class("fading-out");
             window.set_visible(true);
         } else {
-            // Add fading class for CSS transition
             if !window.has_css_class("fading-out") {
                 window.add_css_class("fading-out");
-                // Hide after animation completes (200ms)
+
                 let w = window.clone();
                 glib::timeout_add_local_once(Duration::from_millis(200), move || {
                     if w.has_css_class("fading-out") {
@@ -520,4 +524,21 @@ fn toggle_pause(state: &Rc<RefCell<RuntimeState>>) -> bool {
     let mut s = state.borrow_mut();
     s.paused = !s.paused;
     s.paused
+}
+
+fn get_keyboard_layout(config: &Config) -> Option<String> {
+    if let Some(ref layout) = config.keyboard_layout {
+        return Some(layout.clone());
+    }
+
+    if config.auto_detect_layout {
+        let layout_manager = LayoutManager::new();
+        if let Err(e) = layout_manager.init() {
+            warn!("Failed to initialize layout detection: {}", e);
+            return None;
+        }
+        return layout_manager.current_layout_name();
+    }
+
+    None
 }

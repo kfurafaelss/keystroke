@@ -39,10 +39,10 @@ static KEY_NAMES: LazyLock<HashMap<Key, &'static str>> = LazyLock::new(|| {
     m.insert(Key::KEY_END, "End");
     m.insert(Key::KEY_PAGEUP, "PgUp");
     m.insert(Key::KEY_PAGEDOWN, "PgDn");
-    m.insert(Key::KEY_UP, "↑");
-    m.insert(Key::KEY_DOWN, "↓");
-    m.insert(Key::KEY_LEFT, "←");
-    m.insert(Key::KEY_RIGHT, "→");
+    m.insert(Key::KEY_UP, "Up");
+    m.insert(Key::KEY_DOWN, "Down");
+    m.insert(Key::KEY_LEFT, "Left");
+    m.insert(Key::KEY_RIGHT, "Right");
 
     m.insert(Key::KEY_0, "0");
     m.insert(Key::KEY_1, "1");

@@ -102,6 +102,10 @@ pub struct Config {
     pub keystroke_font_size: f64,
 
     pub bubble_font_size: f64,
+
+    pub auto_detect_layout: bool,
+
+    pub keyboard_layout: Option<String>,
 }
 
 impl Default for Config {
@@ -119,6 +123,8 @@ impl Default for Config {
             opacity: 0.9,
             keystroke_font_size: 1.2,
             bubble_font_size: 1.0,
+            auto_detect_layout: true,
+            keyboard_layout: None,
         }
     }
 }

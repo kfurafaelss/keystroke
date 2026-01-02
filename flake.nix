@@ -25,6 +25,7 @@
           wayland-protocols
           dbus
           libappindicator-gtk3
+          libxkbcommon
         ];
 
         buildInputs = with pkgs; [
@@ -36,6 +37,7 @@
           pkg-config
           dbus
           libappindicator-gtk3
+          libxkbcommon
         ];
 
         nativeBuildInputs = with pkgs; [
