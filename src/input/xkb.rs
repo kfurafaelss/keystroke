@@ -273,6 +273,13 @@ impl XkbState {
         self.state.update_key(keycode, direction);
     }
 
+    #[allow(dead_code)]
+    pub fn reset_modifiers(&mut self) {
+        let locked = self.state.serialize_mods(xkb::STATE_MODS_LOCKED);
+
+        self.state.update_mask(0, 0, locked, 0, 0, 0);
+    }
+
     pub fn key_get_utf8(&self, key: Key) -> Option<String> {
         let keycode = Self::key_to_keycode(key);
         let utf8 = self.state.key_get_utf8(keycode);
@@ -416,5 +423,19 @@ mod tests {
 
         let result = state.key_get_utf8(Key::KEY_Z);
         assert_eq!(result, Some("y".to_string()));
+    }
+
+    #[test]
+    fn test_xkb_reset_modifiers() {
+        let mut state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+
+        state.update_key(Key::KEY_LEFTSHIFT, true);
+        assert!(state.is_shift_active());
+
+        state.reset_modifiers();
+        assert!(!state.is_shift_active());
+
+        let result = state.key_get_utf8(Key::KEY_A);
+        assert_eq!(result, Some("a".to_string()));
     }
 }

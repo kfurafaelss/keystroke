@@ -115,13 +115,16 @@ fn listen_to_device(
 
     let borrowed_fd = unsafe { BorrowedFd::borrow_raw(raw_fd) };
     let mut poll_fds = [PollFd::new(borrowed_fd, PollFlags::POLLIN)];
+    let mut pressed_keys = HashSet::new();
 
     while running.load(Ordering::SeqCst) {
         let poll_result = poll(&mut poll_fds, PollTimeout::try_from(100).unwrap());
 
         match poll_result {
-            Ok(n) if n > 0 => {
-                if let Err(e) = process_events(&mut device, &sender, &ignored_keys) {
+            Ok(_n) => {
+                if let Err(e) =
+                    process_events(&mut device, &sender, &ignored_keys, &mut pressed_keys)
+                {
                     if e.to_string().contains("Channel closed") {
                         info!("Channel closed, stopping listener for {}", keyboard.name);
                         break;
@@ -129,11 +132,7 @@ fn listen_to_device(
                     warn!("Error processing events: {}", e);
                 }
             }
-            Ok(_) => {}
             Err(e) => {
-                if e == nix::errno::Errno::EINTR {
-                    continue;
-                }
                 error!("Poll error: {}", e);
                 break;
             }
@@ -148,8 +147,10 @@ fn process_events(
     device: &mut Device,
     sender: &Sender<KeyEvent>,
     ignored_keys: &HashSet<Key>,
+    pressed_keys: &mut HashSet<Key>,
 ) -> Result<()> {
     let events = device.fetch_events().context("Failed to fetch events")?;
+    let mut activity = false;
 
     for event in events {
         if let InputEventKind::Key(key) = event.kind() {
@@ -157,18 +158,22 @@ fn process_events(
                 continue;
             }
 
-            let key_display = KeyDisplay::new(key, event.value() == 1);
-
+            activity = true;
             let key_event = match event.value() {
                 1 => {
                     trace!("Key pressed: {:?}", key);
-                    KeyEvent::Pressed(key_display)
+                    pressed_keys.insert(key);
+                    KeyEvent::Pressed(KeyDisplay::new(key, true))
                 }
                 0 => {
                     trace!("Key released: {:?}", key);
-                    KeyEvent::Released(key_display)
+                    pressed_keys.remove(&key);
+                    KeyEvent::Released(KeyDisplay::new(key, false))
                 }
-                2 => KeyEvent::Pressed(key_display),
+                2 => {
+                    trace!("Key repeat: {:?}", key);
+                    KeyEvent::Pressed(KeyDisplay::new_repeat(key))
+                }
                 _ => continue,
             };
 
@@ -178,6 +183,25 @@ fn process_events(
                     TrySendError::Closed(_) => {
                         return Err(anyhow::anyhow!("Channel closed"));
                     }
+                }
+            }
+        }
+    }
+
+    if activity {
+        if !pressed_keys.is_empty() {
+            if let Ok(actual_state) = device.get_key_state() {
+                let stuck_keys: Vec<Key> = pressed_keys
+                    .iter()
+                    .filter(|k| !actual_state.contains(**k))
+                    .cloned()
+                    .collect();
+
+                for key in stuck_keys {
+                    trace!("Detected stuck key released (process): {:?}", key);
+                    pressed_keys.remove(&key);
+                    let key_display = KeyDisplay::new(key, false);
+                    let _ = sender.try_send(KeyEvent::Released(key_display));
                 }
             }
         }

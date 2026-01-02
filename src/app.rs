@@ -1,3 +1,4 @@
+use crate::compositor::LayoutEvent;
 use crate::config::Config;
 use crate::input::{KeyEvent, KeyListener, LayoutManager, ListenerConfig, ListenerHandle};
 use crate::tray::{TrayAction, TrayHandle};
@@ -33,6 +34,7 @@ struct RuntimeState {
     settings_window: Option<ApplicationWindow>,
     mode_active: Option<Arc<AtomicBool>>,
     listener_handle: Option<ListenerHandle>,
+    layout_manager: Option<LayoutManager>,
 }
 
 impl App {
@@ -163,6 +165,7 @@ fn close_mode_windows(state: &Rc<RefCell<RuntimeState>>) {
     }
 
     s.listener_handle = None;
+    s.layout_manager = None;
 
     if let Some(window) = s.keystroke_window.take() {
         window.close();
@@ -354,8 +357,27 @@ fn start_bubble_mode(
 
     let mut display_widget = BubbleDisplayWidget::new(config.bubble_timeout_ms);
 
-    let layout_name = get_keyboard_layout(config);
-    if let Some(ref name) = layout_name {
+    let mut layout_manager = if config.auto_detect_layout {
+        let lm = LayoutManager::new();
+        if let Err(e) = lm.init() {
+            warn!("Failed to initialize layout detection: {}", e);
+            None
+        } else {
+            Some(lm)
+        }
+    } else {
+        None
+    };
+
+    let initial_layout = if let Some(ref layout) = config.keyboard_layout {
+        Some(layout.clone())
+    } else if let Some(ref lm) = layout_manager {
+        lm.current_layout_name()
+    } else {
+        None
+    };
+
+    if let Some(ref name) = initial_layout {
         info!("Using keyboard layout: {}", name);
         display_widget.set_layout(name);
     }
@@ -363,6 +385,14 @@ fn start_bubble_mode(
     let display = Rc::new(RefCell::new(display_widget));
 
     window.set_child(Some(display.borrow().widget()));
+
+    let (layout_tx, layout_rx) = bounded::<LayoutEvent>(16);
+    if let Some(ref mut lm) = layout_manager {
+        let tx = layout_tx.clone();
+        lm.start_listener(move |event| {
+            let _ = tx.try_send(event);
+        });
+    }
 
     let (sender, receiver) = bounded::<KeyEvent>(1024);
 
@@ -380,6 +410,7 @@ fn start_bubble_mode(
         s.mode_active = Some(Arc::clone(&mode_active));
         s.listener_handle = Some(handle);
         s.bubble_window = Some(window.clone());
+        s.layout_manager = layout_manager;
     }
 
     let active = Arc::clone(&mode_active);
@@ -412,6 +443,30 @@ fn start_bubble_mode(
 
     let active = Arc::clone(&mode_active);
     let state_clone = Rc::clone(&state);
+    let display_clone = Rc::clone(&display);
+
+    glib::MainContext::default().spawn_local(async move {
+        while let Ok(event) = layout_rx.recv().await {
+            if !active.load(Ordering::SeqCst) {
+                break;
+            }
+            if state_clone.borrow().paused {
+                continue;
+            }
+
+            match event {
+                LayoutEvent::LayoutSwitched { name, .. } => {
+                    info!("Layout switched to: {}", name);
+                    display_clone.borrow_mut().set_layout(&name);
+                }
+                LayoutEvent::LayoutsChanged { .. } => {}
+            }
+        }
+        debug!("Layout event loop terminated");
+    });
+
+    let active = Arc::clone(&mode_active);
+    let state_clone = Rc::clone(&state);
     setup_bubble_cleanup_timer(display.clone(), window.clone(), state_clone, active);
 
     window.present();
@@ -440,17 +495,15 @@ fn setup_keystroke_cleanup_timer(
         if display.has_keys() {
             window.remove_css_class("fading-out");
             window.set_visible(true);
-        } else {
-            if !window.has_css_class("fading-out") {
-                window.add_css_class("fading-out");
+        } else if !window.has_css_class("fading-out") {
+            window.add_css_class("fading-out");
 
-                let w = window.clone();
-                glib::timeout_add_local_once(Duration::from_millis(200), move || {
-                    if w.has_css_class("fading-out") {
-                        w.set_visible(false);
-                    }
-                });
-            }
+            let w = window.clone();
+            glib::timeout_add_local_once(Duration::from_millis(200), move || {
+                if w.has_css_class("fading-out") {
+                    w.set_visible(false);
+                }
+            });
         }
 
         ControlFlow::Continue
@@ -478,17 +531,15 @@ fn setup_bubble_cleanup_timer(
         if display.should_show() {
             window.remove_css_class("fading-out");
             window.set_visible(true);
-        } else {
-            if !window.has_css_class("fading-out") {
-                window.add_css_class("fading-out");
+        } else if !window.has_css_class("fading-out") {
+            window.add_css_class("fading-out");
 
-                let w = window.clone();
-                glib::timeout_add_local_once(Duration::from_millis(200), move || {
-                    if w.has_css_class("fading-out") {
-                        w.set_visible(false);
-                    }
-                });
-            }
+            let w = window.clone();
+            glib::timeout_add_local_once(Duration::from_millis(200), move || {
+                if w.has_css_class("fading-out") {
+                    w.set_visible(false);
+                }
+            });
         }
 
         ControlFlow::Continue
@@ -499,21 +550,4 @@ fn toggle_pause(state: &Rc<RefCell<RuntimeState>>) -> bool {
     let mut s = state.borrow_mut();
     s.paused = !s.paused;
     s.paused
-}
-
-fn get_keyboard_layout(config: &Config) -> Option<String> {
-    if let Some(ref layout) = config.keyboard_layout {
-        return Some(layout.clone());
-    }
-
-    if config.auto_detect_layout {
-        let layout_manager = LayoutManager::new();
-        if let Err(e) = layout_manager.init() {
-            warn!("Failed to initialize layout detection: {}", e);
-            return None;
-        }
-        return layout_manager.current_layout_name();
-    }
-
-    None
 }

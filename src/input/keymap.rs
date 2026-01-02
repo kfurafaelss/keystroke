@@ -136,6 +136,8 @@ pub struct KeyDisplay {
 
     #[allow(dead_code)]
     pub pressed: bool,
+
+    pub is_repeat: bool,
 }
 
 impl KeyDisplay {
@@ -145,6 +147,17 @@ impl KeyDisplay {
             key,
             display_name,
             pressed,
+            is_repeat: false,
+        }
+    }
+
+    pub fn new_repeat(key: Key) -> Self {
+        let display_name = key_to_display_name(key);
+        Self {
+            key,
+            display_name,
+            pressed: true,
+            is_repeat: true,
         }
     }
 }

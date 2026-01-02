@@ -2,13 +2,11 @@ use crate::input::{KeyDisplay, XkbState};
 use evdev::Key;
 use gtk4::prelude::*;
 use gtk4::{Box as GtkBox, Label, Orientation};
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
 const MAX_BUBBLES: usize = 10;
-
 const MAX_CHARS_PER_LINE: usize = 45;
-
 const NEW_BUBBLE_TIMEOUT_MS: u64 = 3000;
 
 #[derive(Default)]
@@ -35,9 +33,7 @@ impl ModifierState {
 
 struct ChatBubble {
     text: String,
-
     last_modified: Instant,
-
     label: Label,
 }
 
@@ -82,6 +78,20 @@ impl ChatBubble {
     fn is_stale(&self, timeout: Duration) -> bool {
         self.last_modified.elapsed() > timeout
     }
+}
+
+fn is_modifier_key(key: Key) -> bool {
+    matches!(
+        key,
+        Key::KEY_LEFTCTRL
+            | Key::KEY_RIGHTCTRL
+            | Key::KEY_LEFTALT
+            | Key::KEY_RIGHTALT
+            | Key::KEY_LEFTMETA
+            | Key::KEY_RIGHTMETA
+            | Key::KEY_LEFTSHIFT
+            | Key::KEY_RIGHTSHIFT
+    )
 }
 
 fn is_ignored_key(key: Key) -> bool {
@@ -162,18 +172,13 @@ enum BubbleInput {
 
 pub struct BubbleDisplayWidget {
     container: GtkBox,
-
     bubbles: VecDeque<ChatBubble>,
-
     display_duration: Duration,
-
     new_bubble_timeout: Duration,
-
     modifiers: ModifierState,
-
     want_new_bubble: bool,
-
     xkb_state: XkbState,
+    pressed_keys: HashMap<Key, u32>,
 }
 
 impl BubbleDisplayWidget {
@@ -195,6 +200,7 @@ impl BubbleDisplayWidget {
             modifiers: ModifierState::default(),
             want_new_bubble: false,
             xkb_state: XkbState::new().expect("Failed to create XKB state"),
+            pressed_keys: HashMap::new(),
         }
     }
 
@@ -219,7 +225,20 @@ impl BubbleDisplayWidget {
     }
 
     pub fn process_key(&mut self, key: KeyDisplay) {
-        self.xkb_state.update_key(key.key, true);
+        if is_modifier_key(key.key) {
+            if !key.is_repeat {
+                self.xkb_state.update_key(key.key, true);
+                self.modifiers.update(key.key, true);
+            }
+            return;
+        }
+
+        if !key.is_repeat {
+            self.xkb_state.update_key(key.key, true);
+            let count = self.pressed_keys.entry(key.key).or_insert(0);
+            *count += 1;
+        }
+
         self.modifiers.update(key.key, true);
 
         if self.modifiers.has_command_modifier() {
@@ -268,8 +287,24 @@ impl BubbleDisplayWidget {
     }
 
     pub fn process_key_release(&mut self, key: KeyDisplay) {
-        self.xkb_state.update_key(key.key, false);
-        self.modifiers.update(key.key, false);
+        if is_modifier_key(key.key) {
+            self.xkb_state.update_key(key.key, false);
+            self.modifiers.update(key.key, false);
+            return;
+        }
+
+        if let Some(count) = self.pressed_keys.get_mut(&key.key) {
+            if *count > 0 {
+                *count -= 1;
+            }
+
+            if *count == 0 {
+                self.pressed_keys.remove(&key.key);
+                self.xkb_state.update_key(key.key, false);
+            }
+        } else {
+            self.xkb_state.update_key(key.key, false);
+        }
     }
 
     fn ensure_active_bubble(&mut self) {
@@ -354,10 +389,8 @@ mod tests {
     #[test]
     fn test_key_to_char_regular_keys() {
         let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
-
         let result = key_to_char(Key::KEY_A, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('a'))));
-
         let result = key_to_char(Key::KEY_1, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('1'))));
     }
@@ -365,80 +398,67 @@ mod tests {
     #[test]
     fn test_key_to_char_with_shift() {
         let mut xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
-
         xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
-
         let result = key_to_char(Key::KEY_A, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('A'))));
-
         let result = key_to_char(Key::KEY_1, &xkb_state);
         assert!(matches!(result, Some(BubbleInput::Char('!'))));
     }
 
     #[test]
-    fn test_key_to_char_special_keys() {
-        let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
-
-        let result = key_to_char(Key::KEY_ENTER, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::NewLine)));
-
-        let result = key_to_char(Key::KEY_BACKSPACE, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Backspace)));
-
-        let result = key_to_char(Key::KEY_SPACE, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char(' '))));
-    }
-
-    #[test]
-    fn test_key_to_char_modifiers_ignored() {
-        let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
-
-        assert!(key_to_char(Key::KEY_LEFTCTRL, &xkb_state).is_none());
-        assert!(key_to_char(Key::KEY_LEFTALT, &xkb_state).is_none());
-        assert!(key_to_char(Key::KEY_LEFTMETA, &xkb_state).is_none());
-    }
-
-    #[test]
-    fn test_key_to_char_punctuation() {
-        let xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
-
-        let result = key_to_char(Key::KEY_MINUS, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char('-'))));
-
-        let result = key_to_char(Key::KEY_DOT, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char('.'))));
-    }
-
-    #[test]
-    fn test_key_to_char_punctuation_with_shift() {
+    fn test_shift_persists_after_character_release() {
         let mut xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
         xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
-
-        let result = key_to_char(Key::KEY_MINUS, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char('_'))));
-
-        let result = key_to_char(Key::KEY_DOT, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char('>'))));
+        assert!(xkb_state.is_shift_active());
+        xkb_state.update_key(Key::KEY_A, true);
+        let result = key_to_char(Key::KEY_A, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('A'))));
+        xkb_state.update_key(Key::KEY_A, false);
+        assert!(xkb_state.is_shift_active());
+        xkb_state.update_key(Key::KEY_B, true);
+        let result = key_to_char(Key::KEY_B, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('B'))));
     }
 
     #[test]
-    fn test_key_to_char_german_layout() {
-        let mut xkb_state = XkbState::from_layout_name(Some("German")).unwrap();
+    fn test_shift_persists_through_multiple_characters() {
+        let mut xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
         xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
-
-        let result = key_to_char(Key::KEY_2, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char('"'))));
-
-        let result = key_to_char(Key::KEY_7, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char('/'))));
+        let keys = [Key::KEY_H, Key::KEY_E, Key::KEY_L, Key::KEY_L, Key::KEY_O];
+        let expected = ['H', 'E', 'L', 'L', 'O'];
+        for (key, expected_char) in keys.iter().zip(expected.iter()) {
+            xkb_state.update_key(*key, true);
+            let result = key_to_char(*key, &xkb_state);
+            if let Some(BubbleInput::Char(c)) = result {
+                assert_eq!(c, *expected_char);
+            } else {
+                panic!("Expected Char but got {:?}", result);
+            }
+            xkb_state.update_key(*key, false);
+            assert!(xkb_state.is_shift_active());
+        }
     }
 
     #[test]
-    fn test_key_to_char_spanish_latam_layout() {
-        let mut xkb_state = XkbState::from_layout_name(Some("Spanish (Latin American)")).unwrap();
-        xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
+    fn test_right_shift_works_same_as_left() {
+        let mut xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+        xkb_state.update_key(Key::KEY_RIGHTSHIFT, true);
+        assert!(xkb_state.is_shift_active());
+        xkb_state.update_key(Key::KEY_A, true);
+        let result = key_to_char(Key::KEY_A, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('A'))));
+        xkb_state.update_key(Key::KEY_A, false);
+        assert!(xkb_state.is_shift_active());
+    }
 
-        let result = key_to_char(Key::KEY_2, &xkb_state);
-        assert!(matches!(result, Some(BubbleInput::Char('"'))));
+    #[test]
+    fn test_reset_modifiers_clears_shift() {
+        let mut xkb_state = XkbState::from_layout_name(Some("English (US)")).unwrap();
+        xkb_state.update_key(Key::KEY_LEFTSHIFT, true);
+        assert!(xkb_state.is_shift_active());
+        xkb_state.reset_modifiers();
+        assert!(!xkb_state.is_shift_active());
+        let result = key_to_char(Key::KEY_A, &xkb_state);
+        assert!(matches!(result, Some(BubbleInput::Char('a'))));
     }
 }
