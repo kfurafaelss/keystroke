@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::input::{KeyEvent, KeyListener, LayoutManager, ListenerConfig};
+use crate::input::{KeyEvent, KeyListener, LayoutManager, ListenerConfig, ListenerHandle};
 use crate::tray::{TrayAction, TrayHandle};
 use crate::ui::{
     create_bubble_window, create_launcher_window, create_settings_window, create_window,
@@ -20,25 +20,19 @@ use tracing::{debug, error, info, warn};
 
 pub struct App {
     gtk_app: Application,
-
     config: Config,
 }
 
 #[derive(Default)]
 struct RuntimeState {
     mode: Option<DisplayMode>,
-
     paused: bool,
-
     keystroke_window: Option<ApplicationWindow>,
-
     bubble_window: Option<ApplicationWindow>,
-
     launcher_window: Option<ApplicationWindow>,
-
     settings_window: Option<ApplicationWindow>,
-
     mode_active: Option<Arc<AtomicBool>>,
+    listener_handle: Option<ListenerHandle>,
 }
 
 impl App {
@@ -168,6 +162,8 @@ fn close_mode_windows(state: &Rc<RefCell<RuntimeState>>) {
         active.store(false, Ordering::SeqCst);
     }
 
+    s.listener_handle = None;
+
     if let Some(window) = s.keystroke_window.take() {
         window.close();
     }
@@ -185,11 +181,11 @@ fn setup_tray_handling(
 ) {
     let tray_handle = Rc::new(tray_handle);
 
-    glib::timeout_add_local(Duration::from_millis(50), move || {
-        while let Ok(action) = tray_rx.try_recv() {
+    glib::MainContext::default().spawn_local(async move {
+        while let Ok(action) = tray_rx.recv().await {
             handle_tray_action(&action, &state, &config, &app, &tray_handle);
         }
-        ControlFlow::Continue
+        debug!("Tray event loop terminated");
     });
 }
 
@@ -296,25 +292,49 @@ fn start_keystroke_mode(
     };
 
     let listener = KeyListener::new(sender, listener_config);
+    let handle = listener.start()?;
 
     let mode_active = Arc::new(AtomicBool::new(true));
-    state.borrow_mut().mode_active = Some(Arc::clone(&mode_active));
-
-    if let Err(e) = listener.start() {
-        error!("Failed to start key listener: {}", e);
-        let error_label = gtk4::Label::new(Some(&format!("Error: {}", e)));
-        window.set_child(Some(&error_label));
-    } else {
-        let active = Arc::clone(&mode_active);
-        let state_clone = Rc::clone(&state);
-        setup_keystroke_event_processing(display.clone(), receiver, state_clone, active);
-
-        let active = Arc::clone(&mode_active);
-        let state_clone = Rc::clone(&state);
-        setup_keystroke_cleanup_timer(display.clone(), window.clone(), state_clone, active);
+    {
+        let mut s = state.borrow_mut();
+        s.mode_active = Some(Arc::clone(&mode_active));
+        s.listener_handle = Some(handle);
+        s.keystroke_window = Some(window.clone());
     }
 
-    state.borrow_mut().keystroke_window = Some(window.clone());
+    let active = Arc::clone(&mode_active);
+    let state_clone = Rc::clone(&state);
+    let display_clone = Rc::clone(&display);
+
+    glib::MainContext::default().spawn_local(async move {
+        while let Ok(event) = receiver.recv().await {
+            if !active.load(Ordering::SeqCst) {
+                break;
+            }
+
+            if state_clone.borrow().paused {
+                continue;
+            }
+
+            let mut display = display_clone.borrow_mut();
+            match event {
+                KeyEvent::Pressed(key) => {
+                    display.add_key(key);
+                }
+                KeyEvent::Released(key) => {
+                    display.remove_key(&key);
+                }
+                KeyEvent::AllReleased => {
+                    display.clear();
+                }
+            }
+        }
+        debug!("Keystroke event loop terminated");
+    });
+
+    let active = Arc::clone(&mode_active);
+    let state_clone = Rc::clone(&state);
+    setup_keystroke_cleanup_timer(display.clone(), window.clone(), state_clone, active);
 
     window.present();
 
@@ -332,15 +352,15 @@ fn start_bubble_mode(
 
     setup_drag(&window);
 
-    let mut display = BubbleDisplayWidget::new(config.bubble_timeout_ms);
+    let mut display_widget = BubbleDisplayWidget::new(config.bubble_timeout_ms);
 
     let layout_name = get_keyboard_layout(config);
     if let Some(ref name) = layout_name {
         info!("Using keyboard layout: {}", name);
-        display.set_layout(name);
+        display_widget.set_layout(name);
     }
 
-    let display = Rc::new(RefCell::new(display));
+    let display = Rc::new(RefCell::new(display_widget));
 
     window.set_child(Some(display.borrow().widget()));
 
@@ -352,64 +372,51 @@ fn start_bubble_mode(
     };
 
     let listener = KeyListener::new(sender, listener_config);
+    let handle = listener.start()?;
 
     let mode_active = Arc::new(AtomicBool::new(true));
-    state.borrow_mut().mode_active = Some(Arc::clone(&mode_active));
-
-    if let Err(e) = listener.start() {
-        error!("Failed to start key listener: {}", e);
-        let error_label = gtk4::Label::new(Some(&format!("Error: {}", e)));
-        window.set_child(Some(&error_label));
-    } else {
-        let active = Arc::clone(&mode_active);
-        let state_clone = Rc::clone(&state);
-        setup_bubble_event_processing(display.clone(), receiver, state_clone, active);
-
-        let active = Arc::clone(&mode_active);
-        let state_clone = Rc::clone(&state);
-        setup_bubble_cleanup_timer(display.clone(), window.clone(), state_clone, active);
+    {
+        let mut s = state.borrow_mut();
+        s.mode_active = Some(Arc::clone(&mode_active));
+        s.listener_handle = Some(handle);
+        s.bubble_window = Some(window.clone());
     }
 
-    state.borrow_mut().bubble_window = Some(window.clone());
+    let active = Arc::clone(&mode_active);
+    let state_clone = Rc::clone(&state);
+    let display_clone = Rc::clone(&display);
+
+    glib::MainContext::default().spawn_local(async move {
+        while let Ok(event) = receiver.recv().await {
+            if !active.load(Ordering::SeqCst) {
+                break;
+            }
+
+            if state_clone.borrow().paused {
+                continue;
+            }
+
+            let mut display = display_clone.borrow_mut();
+            match event {
+                KeyEvent::Pressed(key) => {
+                    display.process_key(key);
+                }
+                KeyEvent::Released(key) => {
+                    display.process_key_release(key);
+                }
+                KeyEvent::AllReleased => {}
+            }
+        }
+        debug!("Bubble event loop terminated");
+    });
+
+    let active = Arc::clone(&mode_active);
+    let state_clone = Rc::clone(&state);
+    setup_bubble_cleanup_timer(display.clone(), window.clone(), state_clone, active);
 
     window.present();
 
     Ok(())
-}
-
-fn setup_keystroke_event_processing(
-    display: Rc<RefCell<KeyDisplayWidget>>,
-    receiver: Receiver<KeyEvent>,
-    state: Rc<RefCell<RuntimeState>>,
-    mode_active: Arc<AtomicBool>,
-) {
-    glib::timeout_add_local(Duration::from_millis(16), move || {
-        if !mode_active.load(Ordering::SeqCst) {
-            return ControlFlow::Break;
-        }
-
-        if state.borrow().paused {
-            return ControlFlow::Continue;
-        }
-
-        while let Ok(event) = receiver.try_recv() {
-            let mut display = display.borrow_mut();
-
-            match event {
-                KeyEvent::Pressed(key) => {
-                    display.add_key(key);
-                }
-                KeyEvent::Released(key) => {
-                    display.remove_key(&key);
-                }
-                KeyEvent::AllReleased => {
-                    display.clear();
-                }
-            }
-        }
-
-        ControlFlow::Continue
-    });
 }
 
 fn setup_keystroke_cleanup_timer(
@@ -443,38 +450,6 @@ fn setup_keystroke_cleanup_timer(
                         w.set_visible(false);
                     }
                 });
-            }
-        }
-
-        ControlFlow::Continue
-    });
-}
-
-fn setup_bubble_event_processing(
-    display: Rc<RefCell<BubbleDisplayWidget>>,
-    receiver: Receiver<KeyEvent>,
-    state: Rc<RefCell<RuntimeState>>,
-    mode_active: Arc<AtomicBool>,
-) {
-    glib::timeout_add_local(Duration::from_millis(16), move || {
-        if !mode_active.load(Ordering::SeqCst) {
-            return ControlFlow::Break;
-        }
-
-        if state.borrow().paused {
-            return ControlFlow::Continue;
-        }
-
-        while let Ok(event) = receiver.try_recv() {
-            let mut display = display.borrow_mut();
-            match event {
-                KeyEvent::Pressed(key) => {
-                    display.process_key(key);
-                }
-                KeyEvent::Released(key) => {
-                    display.process_key_release(key);
-                }
-                KeyEvent::AllReleased => {}
             }
         }
 

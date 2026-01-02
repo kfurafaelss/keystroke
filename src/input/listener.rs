@@ -1,7 +1,7 @@
 use crate::input::device::{discover_keyboards, KeyboardDevice};
 use crate::input::keymap::KeyDisplay;
 use anyhow::{Context, Result};
-use async_channel::Sender;
+use async_channel::{Sender, TrySendError};
 use evdev::{Device, InputEventKind, Key};
 use nix::poll::{poll, PollFd, PollFlags, PollTimeout};
 use std::collections::HashSet;
@@ -14,9 +14,7 @@ use tracing::{error, info, trace, warn};
 #[derive(Debug, Clone)]
 pub enum KeyEvent {
     Pressed(KeyDisplay),
-
     Released(KeyDisplay),
-
     #[allow(dead_code)]
     AllReleased,
 }
@@ -24,7 +22,6 @@ pub enum KeyEvent {
 #[derive(Debug, Clone)]
 pub struct ListenerConfig {
     pub all_keyboards: bool,
-
     pub ignored_keys: HashSet<Key>,
 }
 
@@ -37,11 +34,19 @@ impl Default for ListenerConfig {
     }
 }
 
+pub struct ListenerHandle {
+    running: Arc<AtomicBool>,
+}
+
+impl Drop for ListenerHandle {
+    fn drop(&mut self) {
+        self.running.store(false, Ordering::SeqCst);
+    }
+}
+
 pub struct KeyListener {
     sender: Sender<KeyEvent>,
-
     running: Arc<AtomicBool>,
-
     config: ListenerConfig,
 }
 
@@ -54,7 +59,7 @@ impl KeyListener {
         }
     }
 
-    pub fn start(&self) -> Result<()> {
+    pub fn start(&self) -> Result<ListenerHandle> {
         let keyboards = discover_keyboards()?;
 
         if keyboards.is_empty() {
@@ -81,7 +86,9 @@ impl KeyListener {
             });
         }
 
-        Ok(())
+        Ok(ListenerHandle {
+            running: self.running.clone(),
+        })
     }
 
     #[allow(dead_code)]
@@ -115,6 +122,10 @@ fn listen_to_device(
         match poll_result {
             Ok(n) if n > 0 => {
                 if let Err(e) = process_events(&mut device, &sender, &ignored_keys) {
+                    if e.to_string().contains("Channel closed") {
+                        info!("Channel closed, stopping listener for {}", keyboard.name);
+                        break;
+                    }
                     warn!("Error processing events: {}", e);
                 }
             }
@@ -161,8 +172,13 @@ fn process_events(
                 _ => continue,
             };
 
-            if sender.try_send(key_event).is_err() {
-                warn!("Channel full, dropping event");
+            if let Err(e) = sender.try_send(key_event) {
+                match e {
+                    TrySendError::Full(_) => warn!("Channel full, dropping event"),
+                    TrySendError::Closed(_) => {
+                        return Err(anyhow::anyhow!("Channel closed"));
+                    }
+                }
             }
         }
     }
@@ -179,5 +195,17 @@ mod tests {
         let config = ListenerConfig::default();
         assert!(config.all_keyboards);
         assert!(config.ignored_keys.is_empty());
+    }
+
+    #[test]
+    fn test_listener_handle_drop() {
+        let running = Arc::new(AtomicBool::new(true));
+        let handle = ListenerHandle {
+            running: running.clone(),
+        };
+
+        assert!(running.load(Ordering::SeqCst));
+        drop(handle);
+        assert!(!running.load(Ordering::SeqCst));
     }
 }

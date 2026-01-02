@@ -6,5 +6,5 @@ pub mod xkb;
 
 pub use keymap::{is_modifier, KeyDisplay};
 pub use layout::LayoutManager;
-pub use listener::{KeyEvent, KeyListener, ListenerConfig};
+pub use listener::{KeyEvent, KeyListener, ListenerConfig, ListenerHandle};
 pub use xkb::XkbState;
