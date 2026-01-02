@@ -1,35 +1,40 @@
-<div align=center>
+# Keystroke
 
-# ❄️ nix-template-rust-stable 🦀
+A GTK4 Layer Shell keystroke visualizer for Wayland compositors.
 
-[![NixOS](https://img.shields.io/badge/Made_for-Rust-orange.svg?logo=rust&style=for-the-badge)](https://www.rust-lang.org/) [![NixOS](https://img.shields.io/badge/Flakes-Nix-informational.svg?logo=nixos&style=for-the-badge)](https://nixos.org) ![License](https://img.shields.io/github/license/mordragt/nix-templates?style=for-the-badge)
+## Features
 
-Minimal **Rust** development template for **Nix**
+- **Wayland Native**: Built with GTK4 and Layer Shell for seamless Wayland integration.
+- **Multiple Modes**:
+  - **Keystroke Mode**: Displays a history of typed keys.
+  - **Bubble Mode**: Shows pressed keys in a floating bubble.
+- **Compositor Support**: Auto-detection for Hyprland, Sway, Niri, River, DWL, Labwc, and Wayfire.
+  - Advanced layout detection available for Hyprland, Sway, and Niri.
+- **Input Handling**: Captures input directly using `evdev`, supporting multiple keyboards.
+- **System Tray**:
+  - Quick access to switch modes.
+  - Pause/Resume input capture.
+  - Access settings.
+- **Customizable**: Configurable behavior and appearance.
+- **Draggable**: Visualizer windows can be repositioned.
 
-</div>
+## Supported Compositors
 
-## About
+Keystroke automatically detects the running compositor.
 
-This is a minimal template for Rust development on the stable channel. 
-
-## Initialization
-
-See the parent README for further instructions, but you can initialize this template
-with the following command in your current directory.
-
-```bash
-nix flake init -t github:MordragT/nix-templates#rust-stable
-```
+- **Full Support** (Layout detection & events):
+  - Hyprland
+  - Sway
+  - Niri
+- **Basic Support**:
+  - River
+  - DWL
+  - Labwc
+  - Wayfire
 
 ## Usage
 
-- `nix develop`: opens up a `bash` shell with the bare minimum Rust toolset (`cargo` & `rustc`) by default
-- `nix build` : builds the Rust project. Outputs the binary to `./result/bin/<name>`
-- `nix run`: runs the Rust program.
+The application launches with a system tray icon (if supported) and a launcher window.
 
-
-## Reference
-
-1. [wiki/Flakes](https://nixos.wiki/wiki/Flakes)
-2. [Fenix](https://github.com/nix-community/fenix) - used for managing Rust toolchains (read the `makeRustPlatform` example)
-3. [rust-section of language frameworks](https://github.com/NixOS/nixpkgs/blob/master/doc/languages-frameworks/rust.section.md#cargo-features-cargo-features) - optional (use it for extending the template)
+- **Launcher**: Select between Keystroke or Bubble mode.
+- **Tray Icon**: Right-click to access the menu to switch modes, pause capture, or quit.
