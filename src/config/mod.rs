@@ -103,6 +103,24 @@ pub struct Config {
 
     pub bubble_font_size: f64,
 
+    pub bubble_font_family: String,
+
+    pub bubble_color: String,
+
+    pub bubble_sound_enabled: bool,
+
+    pub bubble_position: Position,
+
+    pub bubble_draggable: bool,
+
+    pub bubble_hotkey: String,
+
+    pub keystroke_theme: String,
+
+    pub keystroke_draggable: bool,
+
+    pub keystroke_hotkey: String,
+
     pub auto_detect_layout: bool,
 
     pub keyboard_layout: Option<String>,
@@ -123,6 +141,15 @@ impl Default for Config {
             opacity: 0.9,
             keystroke_font_size: 1.2,
             bubble_font_size: 1.0,
+            bubble_font_family: "Sans".to_string(),
+            bubble_color: "#3584e4".to_string(),
+            bubble_sound_enabled: false,
+            bubble_position: Position::TopRight,
+            bubble_draggable: false,
+            bubble_hotkey: "<Ctrl><Alt>b".to_string(),
+            keystroke_theme: "system".to_string(),
+            keystroke_draggable: false,
+            keystroke_hotkey: "<Ctrl><Alt>k".to_string(),
             auto_detect_layout: true,
             keyboard_layout: None,
         }

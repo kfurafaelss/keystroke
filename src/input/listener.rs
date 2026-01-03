@@ -188,21 +188,19 @@ fn process_events(
         }
     }
 
-    if activity {
-        if !pressed_keys.is_empty() {
-            if let Ok(actual_state) = device.get_key_state() {
-                let stuck_keys: Vec<Key> = pressed_keys
-                    .iter()
-                    .filter(|k| !actual_state.contains(**k))
-                    .cloned()
-                    .collect();
+    if activity && !pressed_keys.is_empty() {
+        if let Ok(actual_state) = device.get_key_state() {
+            let stuck_keys: Vec<Key> = pressed_keys
+                .iter()
+                .filter(|k| !actual_state.contains(**k))
+                .cloned()
+                .collect();
 
-                for key in stuck_keys {
-                    trace!("Detected stuck key released (process): {:?}", key);
-                    pressed_keys.remove(&key);
-                    let key_display = KeyDisplay::new(key, false);
-                    let _ = sender.try_send(KeyEvent::Released(key_display));
-                }
+            for key in stuck_keys {
+                trace!("Detected stuck key released (process): {:?}", key);
+                pressed_keys.remove(&key);
+                let key_display = KeyDisplay::new(key, false);
+                let _ = sender.try_send(KeyEvent::Released(key_display));
             }
         }
     }
