@@ -7,7 +7,7 @@ use gtk4::{Box as GtkBox, Image, Label, Orientation, Widget};
 use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
-const LOGO_SVG: &[u8] = include_bytes!("../assets/logo.svg");
+const LOGO_SVG: &[u8] = include_bytes!("../assets/logo-symbolic.svg");
 
 #[derive(Debug)]
 struct DisplayedKey {

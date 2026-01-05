@@ -119,14 +119,23 @@ fn setup_launcher_and_modes(
     state: &Rc<RefCell<RuntimeState>>,
     config: &Rc<RefCell<Config>>,
 ) {
-    let state_clone = Rc::clone(state);
-    let config_clone = Rc::clone(config);
-    let app_clone = app.clone();
-
-    let launcher = create_launcher_window(app, move |mode| {
+    let app_for_mode = app.clone();
+    let state_for_mode = Rc::clone(state);
+    let config_for_mode = Rc::clone(config);
+    let on_mode_select = move |mode| {
         debug!("Mode selected: {:?}", mode);
-        switch_mode(&app_clone, &state_clone, &config_clone, mode);
-    });
+        switch_mode(&app_for_mode, &state_for_mode, &config_for_mode, mode);
+    };
+
+    let app_for_settings = app.clone();
+    let state_for_settings = Rc::clone(state);
+    let config_for_settings = Rc::clone(config);
+    let on_settings = move || {
+        debug!("Opening settings from launcher");
+        open_settings(&app_for_settings, &state_for_settings, &config_for_settings);
+    };
+
+    let launcher = create_launcher_window(app, on_mode_select, on_settings);
 
     state.borrow_mut().launcher_window = Some(launcher.clone());
 
