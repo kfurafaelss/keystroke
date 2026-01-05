@@ -9,10 +9,9 @@ fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> Stri
     format!(
         r#"
 .keystroke-window {{
-    background-color: @window_bg_color;
-    border-radius: 12px;
-    padding: 8px 16px;
-    border: 1px solid @borders;
+    background-color: transparent;
+    padding: 8px;
+    border: none;
     transition: opacity 200ms ease-in-out;
 }}
 
@@ -27,13 +26,18 @@ fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> Stri
 .keystroke-key {{
     background-color: @card_bg_color;
     color: @card_fg_color;
-    border-radius: 8px;
-    padding: 8px 14px;
+    border-radius: 9999px;
+    padding: 10px 16px;
     margin: 4px;
     font-weight: bold;
     font-size: {keystroke_font_size}em;
     border: 1px solid @borders;
     min-width: 32px;
+}}
+
+.keystroke-key label {{
+    margin: 0;
+    padding: 0;
 }}
 
 .keystroke-key.modifier {{
@@ -42,7 +46,12 @@ fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> Stri
 }}
 
 .keystroke-key.fading {{
-    opacity: 0.6;
+}}
+
+.combo-separator {{
+    color: inherit;
+    font-weight: normal;
+    font-size: 0.9em;
 }}
 
 .keystroke-separator {{

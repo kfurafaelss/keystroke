@@ -1,25 +1,31 @@
-use crate::input::{is_modifier, KeyDisplay};
+use crate::input::{is_modifier, is_super_key, KeyDisplay};
 use evdev::Key;
+use gtk4::gdk::Texture;
+use gtk4::gdk_pixbuf::Pixbuf;
 use gtk4::prelude::*;
-use gtk4::{Box as GtkBox, Label, Orientation};
+use gtk4::{Box as GtkBox, Image, Label, Orientation, Widget};
 use std::collections::{HashSet, VecDeque};
 use std::time::{Duration, Instant};
 
+const LOGO_SVG: &[u8] = include_bytes!("../assets/logo.svg");
+
 #[derive(Debug)]
 struct DisplayedKey {
-    key: Key,
+    keys: Vec<Key>,
 
     last_active: Instant,
 
     is_held: bool,
 
-    label: Label,
+    widget: Widget,
 }
 
 pub struct KeyDisplayWidget {
     container: GtkBox,
 
     displayed_keys: VecDeque<DisplayedKey>,
+
+    held_modifiers: HashSet<Key>,
 
     held_keys: HashSet<Key>,
 
@@ -32,7 +38,7 @@ impl KeyDisplayWidget {
     pub fn new(max_keys: usize, display_timeout_ms: u64) -> Self {
         let container = GtkBox::builder()
             .orientation(Orientation::Horizontal)
-            .spacing(4)
+            .spacing(8)
             .halign(gtk4::Align::Start)
             .valign(gtk4::Align::Center)
             .build();
@@ -42,6 +48,7 @@ impl KeyDisplayWidget {
         Self {
             container,
             displayed_keys: VecDeque::new(),
+            held_modifiers: HashSet::new(),
             held_keys: HashSet::new(),
             max_keys,
             display_duration: Duration::from_millis(display_timeout_ms),
@@ -55,10 +62,21 @@ impl KeyDisplayWidget {
     pub fn add_key(&mut self, key: KeyDisplay) {
         self.held_keys.insert(key.key);
 
-        if let Some(existing) = self.displayed_keys.iter_mut().find(|dk| dk.key == key.key) {
+        if is_modifier(key.key) {
+            self.held_modifiers.insert(key.key);
+
+            return;
+        }
+
+        let current_combo = self.get_current_combo(key.key);
+        if let Some(existing) = self
+            .displayed_keys
+            .iter_mut()
+            .find(|dk| dk.keys == current_combo)
+        {
             existing.last_active = Instant::now();
             existing.is_held = true;
-            existing.label.remove_css_class("fading");
+            existing.widget.remove_css_class("fading");
             return;
         }
 
@@ -66,44 +84,118 @@ impl KeyDisplayWidget {
 
         while self.displayed_keys.len() >= self.max_keys {
             if let Some(old) = self.displayed_keys.pop_front() {
-                self.container.remove(&old.label);
+                self.container.remove(&old.widget);
             }
         }
 
-        self.cleanup_separators();
+        let widget = self.create_combo_widget(&current_combo);
 
-        if !self.displayed_keys.is_empty() {
-            let separator = Label::new(Some("+"));
-            separator.add_css_class("keystroke-separator");
-            self.container.append(&separator);
-        }
-
-        let label = Label::new(Some(&key.display_name));
-        label.add_css_class("keystroke-key");
-
-        if is_modifier(key.key) {
-            label.add_css_class("modifier");
-        }
-
-        self.container.append(&label);
+        self.container.append(&widget);
 
         let displayed = DisplayedKey {
-            key: key.key,
+            keys: current_combo,
             last_active: Instant::now(),
             is_held: true,
-            label,
+            widget,
         };
 
         self.displayed_keys.push_back(displayed);
     }
 
+    fn get_current_combo(&self, key: Key) -> Vec<Key> {
+        let mut combo: Vec<Key> = self.held_modifiers.iter().copied().collect();
+
+        combo.sort_by_key(|k| match *k {
+            Key::KEY_LEFTCTRL | Key::KEY_RIGHTCTRL => 0,
+            Key::KEY_LEFTALT | Key::KEY_RIGHTALT => 1,
+            Key::KEY_LEFTSHIFT | Key::KEY_RIGHTSHIFT => 2,
+            Key::KEY_LEFTMETA | Key::KEY_RIGHTMETA => 3,
+            _ => 4,
+        });
+        combo.push(key);
+        combo
+    }
+
+    fn create_combo_widget(&self, keys: &[Key]) -> Widget {
+        let key_box = GtkBox::builder()
+            .orientation(Orientation::Horizontal)
+            .spacing(6)
+            .halign(gtk4::Align::Center)
+            .valign(gtk4::Align::Center)
+            .hexpand(false)
+            .build();
+        key_box.add_css_class("keystroke-key");
+
+        let has_modifier = keys.iter().any(|k| is_modifier(*k));
+        if has_modifier {
+            key_box.add_css_class("modifier");
+        }
+
+        for (i, key) in keys.iter().enumerate() {
+            if i > 0 {
+                let sep = Label::new(Some("+"));
+                sep.add_css_class("combo-separator");
+                sep.set_halign(gtk4::Align::Center);
+                key_box.append(&sep);
+            }
+
+            if is_super_key(*key) {
+                let image = self.create_logo_image();
+                image.set_halign(gtk4::Align::Center);
+                image.set_valign(gtk4::Align::Center);
+                key_box.append(&image);
+            } else {
+                let display_name = crate::input::keymap::key_to_display_name(*key);
+                let label = Label::builder()
+                    .label(&display_name)
+                    .halign(gtk4::Align::Center)
+                    .valign(gtk4::Align::Center)
+                    .hexpand(true)
+                    .build();
+                key_box.append(&label);
+            }
+        }
+
+        key_box.upcast()
+    }
+
+    fn create_logo_image(&self) -> Image {
+        let settings = gtk4::Settings::default();
+        let is_dark = settings
+            .map(|s| s.is_gtk_application_prefer_dark_theme())
+            .unwrap_or(false);
+        let color = if is_dark { "#ffffff" } else { "#000000" };
+
+        let svg_str = String::from_utf8_lossy(LOGO_SVG);
+        let svg_with_color = svg_str.replace("currentColor", color);
+
+        let stream = gtk4::gio::MemoryInputStream::from_bytes(&gtk4::glib::Bytes::from(
+            svg_with_color.as_bytes(),
+        ));
+
+        if let Ok(pixbuf) =
+            Pixbuf::from_stream_at_scale(&stream, 20, 20, true, gtk4::gio::Cancellable::NONE)
+        {
+            let texture = Texture::for_pixbuf(&pixbuf);
+            Image::from_paintable(Some(&texture))
+        } else {
+            Image::new()
+        }
+    }
+
     pub fn remove_key(&mut self, key: &KeyDisplay) {
         self.held_keys.remove(&key.key);
 
-        if let Some(displayed) = self.displayed_keys.iter_mut().find(|dk| dk.key == key.key) {
-            displayed.is_held = false;
-            displayed.last_active = Instant::now();
-            displayed.label.add_css_class("fading");
+        if is_modifier(key.key) {
+            self.held_modifiers.remove(&key.key);
+        }
+
+        for displayed in self.displayed_keys.iter_mut() {
+            if displayed.keys.contains(&key.key) {
+                displayed.is_held = false;
+                displayed.last_active = Instant::now();
+                displayed.widget.add_css_class("fading");
+            }
         }
     }
 
@@ -121,12 +213,8 @@ impl KeyDisplayWidget {
 
         for &i in expired.iter().rev() {
             if let Some(removed) = self.displayed_keys.remove(i) {
-                self.container.remove(&removed.label);
+                self.container.remove(&removed.widget);
             }
-        }
-
-        if !expired.is_empty() {
-            self.cleanup_separators();
         }
     }
 
@@ -136,30 +224,7 @@ impl KeyDisplayWidget {
         }
         self.displayed_keys.clear();
         self.held_keys.clear();
-    }
-
-    fn cleanup_separators(&self) {
-        let mut child = self.container.first_child();
-        while let Some(widget) = child {
-            let next = widget.next_sibling();
-            if widget.has_css_class("keystroke-separator") {
-                self.container.remove(&widget);
-            }
-            child = next;
-        }
-
-        if self.displayed_keys.len() > 1 {
-            let mut child = self.container.first_child();
-            while let Some(widget) = child {
-                let next = widget.next_sibling();
-                if next.is_some() && !widget.has_css_class("keystroke-separator") {
-                    let separator = Label::new(Some("+"));
-                    separator.add_css_class("keystroke-separator");
-                    separator.insert_after(&self.container, Some(&widget));
-                }
-                child = next;
-            }
-        }
+        self.held_modifiers.clear();
     }
 
     #[allow(dead_code)]
@@ -173,7 +238,7 @@ impl KeyDisplayWidget {
 
         while self.displayed_keys.len() > max_keys {
             if let Some(old) = self.displayed_keys.pop_front() {
-                self.container.remove(&old.label);
+                self.container.remove(&old.widget);
             }
         }
     }

@@ -5,15 +5,15 @@ use std::sync::LazyLock;
 static KEY_NAMES: LazyLock<HashMap<Key, &'static str>> = LazyLock::new(|| {
     let mut m = HashMap::new();
 
-    m.insert(Key::KEY_LEFTCTRL, "Ctrl");
-    m.insert(Key::KEY_RIGHTCTRL, "Ctrl");
-    m.insert(Key::KEY_LEFTSHIFT, "Shift");
-    m.insert(Key::KEY_RIGHTSHIFT, "Shift");
-    m.insert(Key::KEY_LEFTALT, "Alt");
-    m.insert(Key::KEY_RIGHTALT, "Alt");
-    m.insert(Key::KEY_LEFTMETA, "Super");
-    m.insert(Key::KEY_RIGHTMETA, "Super");
-    m.insert(Key::KEY_CAPSLOCK, "Caps");
+    m.insert(Key::KEY_LEFTCTRL, "󰘴");
+    m.insert(Key::KEY_RIGHTCTRL, "󰘴");
+    m.insert(Key::KEY_LEFTSHIFT, "󰘶");
+    m.insert(Key::KEY_RIGHTSHIFT, "󰘶");
+    m.insert(Key::KEY_LEFTALT, "󰘵");
+    m.insert(Key::KEY_RIGHTALT, "󰘵");
+    m.insert(Key::KEY_LEFTMETA, "󰖳");
+    m.insert(Key::KEY_RIGHTMETA, "󰖳");
+    m.insert(Key::KEY_CAPSLOCK, "󰪛");
 
     m.insert(Key::KEY_F1, "F1");
     m.insert(Key::KEY_F2, "F2");
@@ -28,21 +28,21 @@ static KEY_NAMES: LazyLock<HashMap<Key, &'static str>> = LazyLock::new(|| {
     m.insert(Key::KEY_F11, "F11");
     m.insert(Key::KEY_F12, "F12");
 
-    m.insert(Key::KEY_ESC, "Esc");
-    m.insert(Key::KEY_TAB, "Tab");
-    m.insert(Key::KEY_BACKSPACE, "Backspace");
-    m.insert(Key::KEY_ENTER, "Enter");
-    m.insert(Key::KEY_SPACE, "Space");
-    m.insert(Key::KEY_INSERT, "Insert");
-    m.insert(Key::KEY_DELETE, "Delete");
-    m.insert(Key::KEY_HOME, "Home");
-    m.insert(Key::KEY_END, "End");
-    m.insert(Key::KEY_PAGEUP, "PgUp");
-    m.insert(Key::KEY_PAGEDOWN, "PgDn");
-    m.insert(Key::KEY_UP, "Up");
-    m.insert(Key::KEY_DOWN, "Down");
-    m.insert(Key::KEY_LEFT, "Left");
-    m.insert(Key::KEY_RIGHT, "Right");
+    m.insert(Key::KEY_ESC, "󱊷");
+    m.insert(Key::KEY_TAB, "󰌒");
+    m.insert(Key::KEY_BACKSPACE, "󰭜");
+    m.insert(Key::KEY_ENTER, "󰌑");
+    m.insert(Key::KEY_SPACE, "󱁐");
+    m.insert(Key::KEY_INSERT, "󰎂");
+    m.insert(Key::KEY_DELETE, "󰹾");
+    m.insert(Key::KEY_HOME, "󰋜");
+    m.insert(Key::KEY_END, "󰟀");
+    m.insert(Key::KEY_PAGEUP, "󰞕");
+    m.insert(Key::KEY_PAGEDOWN, "󰞒");
+    m.insert(Key::KEY_UP, "󰁝");
+    m.insert(Key::KEY_DOWN, "󰁅");
+    m.insert(Key::KEY_LEFT, "󰁍");
+    m.insert(Key::KEY_RIGHT, "󰁔");
 
     m.insert(Key::KEY_0, "0");
     m.insert(Key::KEY_1, "1");
@@ -132,6 +132,7 @@ static KEY_NAMES: LazyLock<HashMap<Key, &'static str>> = LazyLock::new(|| {
 pub struct KeyDisplay {
     pub key: Key,
 
+    #[allow(dead_code)]
     pub display_name: String,
 
     #[allow(dead_code)]
@@ -183,6 +184,10 @@ pub fn is_modifier(key: Key) -> bool {
     )
 }
 
+pub fn is_super_key(key: Key) -> bool {
+    matches!(key, Key::KEY_LEFTMETA | Key::KEY_RIGHTMETA)
+}
+
 #[allow(dead_code)]
 pub fn normalize_modifier(key: Key) -> Key {
     match key {
@@ -201,8 +206,8 @@ mod tests {
     #[test]
     fn test_key_to_display_name() {
         assert_eq!(key_to_display_name(Key::KEY_A), "A");
-        assert_eq!(key_to_display_name(Key::KEY_LEFTCTRL), "Ctrl");
-        assert_eq!(key_to_display_name(Key::KEY_SPACE), "Space");
+        assert_eq!(key_to_display_name(Key::KEY_LEFTCTRL), "󰘴");
+        assert_eq!(key_to_display_name(Key::KEY_SPACE), "󱁐");
     }
 
     #[test]
