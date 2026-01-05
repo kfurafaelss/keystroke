@@ -1,0 +1,227 @@
+.settings-window {
+    background-color: @theme_bg_color;
+}
+
+.settings-sidebar {
+    background-color: mix(@theme_bg_color, @theme_base_color, 0.5);
+    border-right: 1px solid @borders;
+    padding: 8px 0;
+}
+
+.settings-sidebar row {
+    padding: 12px 20px;
+    margin: 2px 8px;
+    border-radius: 8px;
+}
+
+.settings-sidebar row:selected {
+    background-color: alpha(@theme_selected_bg_color, 0.2);
+}
+
+.settings-content-area {
+    padding: 32px 48px;
+    background-color: @theme_bg_color;
+}
+
+.settings-page-header {
+    margin-bottom: 32px;
+}
+
+.settings-page-icon {
+    background: linear-gradient(135deg, @purple_3, @pink_3);
+    border-radius: 12px;
+    padding: 16px;
+    min-width: 48px;
+    min-height: 48px;
+}
+
+.settings-page-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: @theme_fg_color;
+}
+
+.settings-page-subtitle {
+    font-size: 14px;
+    color: @theme_unfocused_fg_color;
+    margin-top: 4px;
+}
+
+.settings-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: @theme_unfocused_fg_color;
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    margin-top: 32px;
+    text-transform: uppercase;
+}
+
+.settings-card {
+    background-color: @theme_base_color;
+    border-radius: 12px;
+    border: 1px solid @borders;
+    padding: 4px 0;
+}
+
+.settings-row {
+    padding: 16px 20px;
+    min-height: 48px;
+}
+
+.settings-row:not(:last-child) {
+    border-bottom: 1px solid alpha(@borders, 0.5);
+}
+
+.settings-label {
+    font-weight: 500;
+    color: @theme_fg_color;
+    font-size: 14px;
+}
+
+.settings-sublabel {
+    font-size: 12px;
+    color: @theme_unfocused_fg_color;
+    margin-top: 2px;
+}
+
+.suggested-action {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-weight: 600;
+}
+
+.suggested-action:hover {
+    background-color: shade(@theme_selected_bg_color, 0.9);
+}
+
+.cancel-button {
+    background-color: alpha(@theme_fg_color, 0.1);
+    color: @theme_fg_color;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-weight: 600;
+}
+
+.cancel-button:hover {
+    background-color: alpha(@theme_fg_color, 0.15);
+}
+
+.theme-button {
+    background-color: alpha(@theme_fg_color, 0.08);
+    border: 1px solid @borders;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: @theme_fg_color;
+    min-width: 60px;
+}
+
+.theme-button:hover {
+    background-color: alpha(@theme_fg_color, 0.12);
+}
+
+.theme-button.selected {
+    background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color;
+    border-color: @theme_selected_bg_color;
+}
+
+.color-button-row button {
+    border-radius: 50%;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 2px solid transparent;
+}
+
+.color-button-row button:checked,
+.color-button-row button.selected {
+    border-color: @theme_selected_bg_color;
+}
+
+.position-grid {
+    background-color: alpha(@theme_fg_color, 0.06);
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.position-button {
+    background-color: alpha(@theme_fg_color, 0.12);
+    border: none;
+    border-radius: 4px;
+    min-width: 24px;
+    min-height: 24px;
+    margin: 2px;
+}
+
+.position-button:checked,
+.position-button.selected {
+    background-color: @theme_selected_bg_color;
+}
+
+.flat-entry {
+    border: 1px solid @borders;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background-color: @theme_base_color;
+    color: @theme_fg_color;
+}
+
+.flat-entry:focus {
+    border-color: @theme_selected_bg_color;
+}
+
+scale {
+    min-width: 180px;
+}
+
+scale trough {
+    background-color: alpha(@theme_fg_color, 0.12);
+    border-radius: 4px;
+    min-height: 6px;
+}
+
+scale highlight {
+    background-color: @theme_selected_bg_color;
+    border-radius: 4px;
+}
+
+scale slider {
+    background-color: @theme_base_color;
+    border: 1px solid @borders;
+    border-radius: 50%;
+    min-width: 18px;
+    min-height: 18px;
+}
+
+switch {
+    background-color: alpha(@theme_fg_color, 0.2);
+    border-radius: 14px;
+}
+
+switch:checked {
+    background-color: @theme_selected_bg_color;
+}
+
+switch slider {
+    background-color: @theme_base_color;
+    border-radius: 50%;
+}
+
+dropdown button {
+    background-color: alpha(@theme_fg_color, 0.06);
+    border: 1px solid @borders;
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: @theme_fg_color;
+}
+
+dropdown button:hover {
+    background-color: alpha(@theme_fg_color, 0.1);
+}
