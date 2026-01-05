@@ -33,6 +33,7 @@ fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> Stri
     font-size: {keystroke_font_size}em;
     border: 1px solid @borders;
     min-width: 32px;
+    min-height: 18px;
 }}
 
 .keystroke-key label {{
