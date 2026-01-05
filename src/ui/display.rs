@@ -174,10 +174,13 @@ impl KeyDisplayWidget {
         ));
 
         if let Ok(pixbuf) =
-            Pixbuf::from_stream_at_scale(&stream, 20, 20, true, gtk4::gio::Cancellable::NONE)
+            Pixbuf::from_stream_at_scale(&stream, 18, 18, false, gtk4::gio::Cancellable::NONE)
         {
             let texture = Texture::for_pixbuf(&pixbuf);
-            Image::from_paintable(Some(&texture))
+            let image = Image::from_paintable(Some(&texture));
+
+            image.set_pixel_size(18);
+            image
         } else {
             Image::new()
         }

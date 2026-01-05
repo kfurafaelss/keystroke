@@ -80,7 +80,7 @@ fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> Stri
 .bubble {{
     background-color: @card_bg_color;
     color: @card_fg_color;
-    border-radius: 18px;
+    border-radius: 0px 18px 18px 18px;
     padding: 10px 16px;
     margin: 4px 0;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
