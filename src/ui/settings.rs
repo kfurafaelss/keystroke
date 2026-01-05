@@ -9,7 +9,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use tracing::{debug, info};
 
-const SETTINGS_CSS: &str = r#"
+const SETTINGS_CSS: &str = r"
 .settings-window {
     background-color: @theme_bg_color;
 }
@@ -237,7 +237,7 @@ dropdown button {
 dropdown button:hover {
     background-color: alpha(@theme_fg_color, 0.1);
 }
-"#;
+";
 
 const POSITION_OPTIONS: [(&str, Position); 6] = [
     ("Top Left", Position::TopLeft),
@@ -704,12 +704,12 @@ fn create_dropdown_row(
     label_box.append(&label_w);
 
     if let Some(sub) = sublabel {
-        let sub_label = Label::builder()
+        let subtitle_widget = Label::builder()
             .label(sub)
             .halign(gtk4::Align::Start)
             .css_classes(["settings-sublabel"])
             .build();
-        label_box.append(&sub_label);
+        label_box.append(&subtitle_widget);
     }
 
     let list = StringList::new(options);
@@ -750,12 +750,12 @@ fn create_spin_row(
     label_box.append(&label_w);
 
     if let Some(sub) = sublabel {
-        let sub_label = Label::builder()
+        let subtitle_widget = Label::builder()
             .label(sub)
             .halign(gtk4::Align::Start)
             .css_classes(["settings-sublabel"])
             .build();
-        label_box.append(&sub_label);
+        label_box.append(&subtitle_widget);
     }
 
     let adj = Adjustment::new(value, min, max, 1.0, 5.0, 0.0);
@@ -793,12 +793,12 @@ fn create_switch_row(label: &str, sublabel: Option<&str>, active: bool) -> (GtkB
     label_box.append(&label_w);
 
     if let Some(sub) = sublabel {
-        let sub_label = Label::builder()
+        let subtitle_widget = Label::builder()
             .label(sub)
             .halign(gtk4::Align::Start)
             .css_classes(["settings-sublabel"])
             .build();
-        label_box.append(&sub_label);
+        label_box.append(&subtitle_widget);
     }
 
     let switch = Switch::builder()
@@ -834,12 +834,12 @@ fn create_entry_row(label: &str, sublabel: Option<&str>, text: &str) -> (GtkBox,
     label_box.append(&label_w);
 
     if let Some(sub) = sublabel {
-        let sub_label = Label::builder()
+        let subtitle_widget = Label::builder()
             .label(sub)
             .halign(gtk4::Align::Start)
             .css_classes(["settings-sublabel"])
             .build();
-        label_box.append(&sub_label);
+        label_box.append(&subtitle_widget);
     }
 
     let entry = Entry::builder()
@@ -884,12 +884,12 @@ fn create_scale_row(
     label_box.append(&label_w);
 
     if let Some(sub) = sublabel {
-        let sub_label = Label::builder()
+        let subtitle_widget = Label::builder()
             .label(sub)
             .halign(gtk4::Align::Start)
             .css_classes(["settings-sublabel"])
             .build();
-        label_box.append(&sub_label);
+        label_box.append(&subtitle_widget);
     }
 
     let control_box = GtkBox::builder()
@@ -941,12 +941,12 @@ fn create_color_row(
     label_box.append(&label_w);
 
     if let Some(sub) = sublabel {
-        let sub_label = Label::builder()
+        let subtitle_widget = Label::builder()
             .label(sub)
             .halign(gtk4::Align::Start)
             .css_classes(["settings-sublabel"])
             .build();
-        label_box.append(&sub_label);
+        label_box.append(&subtitle_widget);
     }
 
     let color_dialog = ColorDialog::new();

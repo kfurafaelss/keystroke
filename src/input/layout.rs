@@ -50,7 +50,9 @@ impl LayoutManager {
                     layouts.len(),
                     layouts.current_name()
                 );
-                *self.layouts.write().unwrap() = layouts;
+                if let Ok(mut guard) = self.layouts.write() {
+                    *guard = layouts;
+                }
                 Ok(())
             }
             Err(e) => {
@@ -72,26 +74,33 @@ impl LayoutManager {
 
     #[must_use]
     pub fn layouts(&self) -> KeyboardLayouts {
-        self.layouts.read().unwrap().clone()
+        self.layouts
+            .read()
+            .map(|guard| guard.clone())
+            .unwrap_or_default()
     }
 
     #[must_use]
     pub fn current_layout_name(&self) -> Option<String> {
         self.layouts
             .read()
-            .unwrap()
-            .current_name()
-            .map(String::from)
+            .ok()
+            .and_then(|guard| guard.current_name().map(String::from))
     }
 
     #[must_use]
     pub fn current_layout_index(&self) -> usize {
-        self.layouts.read().unwrap().current_idx
+        self.layouts
+            .read()
+            .map(|guard| guard.current_idx)
+            .unwrap_or(0)
     }
 
     pub fn refresh(&self) -> anyhow::Result<()> {
         let layouts = self.fetch_layouts()?;
-        *self.layouts.write().unwrap() = layouts;
+        if let Ok(mut guard) = self.layouts.write() {
+            *guard = layouts;
+        }
         Ok(())
     }
 
@@ -190,8 +199,9 @@ impl LayoutManager {
                     layouts: ref new_layouts,
                 } = event
                 {
-                    let mut cached = layouts.write().unwrap();
-                    *cached = new_layouts.clone();
+                    if let Ok(mut cached) = layouts.write() {
+                        *cached = new_layouts.clone();
+                    }
                 }
 
                 callback(event);
@@ -242,9 +252,7 @@ impl LayoutManager {
                     if let Some((_keyboard, layout_name)) =
                         HyprlandClient::parse_layout_event(event_data)
                     {
-                        {
-                            let mut cached = layouts.write().unwrap();
-
+                        let current_idx = if let Ok(mut cached) = layouts.write() {
                             let index = cached
                                 .names
                                 .iter()
@@ -254,11 +262,14 @@ impl LayoutManager {
                                     cached.names.len() - 1
                                 });
                             cached.current_idx = index;
-                        }
+                            index
+                        } else {
+                            0
+                        };
 
                         callback(LayoutEvent::LayoutSwitched {
                             name: layout_name.to_string(),
-                            index: layouts.read().unwrap().current_idx,
+                            index: current_idx,
                         });
                     }
                 }
@@ -307,7 +318,10 @@ impl LayoutManager {
                 continue;
             }
 
-            let payload_len = u32::from_le_bytes(header[6..10].try_into().unwrap());
+            let payload_len = match header[6..10].try_into() {
+                Ok(bytes) => u32::from_le_bytes(bytes),
+                Err(_) => continue,
+            };
 
             let mut payload = vec![0u8; payload_len as usize];
             if reader.read_exact(&mut payload).is_err() {
@@ -322,7 +336,9 @@ impl LayoutManager {
             if json.contains("\"xkb_layout\"") || json.contains("\"xkb_keymap\"") {
                 if let Some(c) = SwayClient::new() {
                     if let Ok(new_layouts) = c.get_keyboard_layouts() {
-                        *layouts.write().unwrap() = new_layouts.clone();
+                        if let Ok(mut guard) = layouts.write() {
+                            *guard = new_layouts.clone();
+                        }
                         callback(LayoutEvent::LayoutsChanged {
                             layouts: new_layouts,
                         });

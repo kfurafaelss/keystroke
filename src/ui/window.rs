@@ -7,7 +7,7 @@ use tracing::info;
 
 fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> String {
     format!(
-        r#"
+        r"
 .keystroke-window {{
     background-color: transparent;
     padding: 8px;
@@ -87,7 +87,7 @@ fn generate_overlay_css(keystroke_font_size: f64, bubble_font_size: f64) -> Stri
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     font-size: {bubble_font_size}em;
 }}
-"#,
+",
         keystroke_font_size = keystroke_font_size,
         bubble_font_size = bubble_font_size
     )

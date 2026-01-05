@@ -38,56 +38,53 @@ struct RuntimeState {
 }
 
 impl App {
-    pub fn new(config: Config) -> Result<Self> {
+    #[must_use]
+    pub fn new(config: Config) -> Self {
         let gtk_app = Application::builder()
             .application_id("dev.linuxmobile.keystroke")
             .build();
 
-        Ok(Self { gtk_app, config })
+        Self { gtk_app, config }
     }
 
+    #[must_use]
     pub fn run_with_tray(
         self,
         tray_rx: Receiver<TrayAction>,
         tray_handle: TrayHandle,
-    ) -> Result<i32> {
+    ) -> i32 {
         let config = self.config.clone();
 
         self.gtk_app.connect_activate(move |app| {
-            if let Err(e) = activate(app, &config, tray_rx.clone(), tray_handle.clone()) {
-                error!("Failed to activate application: {}", e);
-            }
+            activate(app, &config, tray_rx.clone(), tray_handle.clone());
         });
 
         let exit_code = self.gtk_app.run_with_args::<&str>(&[]);
 
-        Ok(exit_code.into())
+        exit_code.into()
     }
 
-    pub fn run(self) -> Result<i32> {
+    #[must_use]
+    pub fn run(self) -> i32 {
         let config = self.config.clone();
 
         self.gtk_app.connect_activate(move |app| {
-            if let Err(e) = activate_without_tray(app, &config) {
-                error!("Failed to activate application: {}", e);
-            }
+            activate_without_tray(app, &config);
         });
 
         let exit_code = self.gtk_app.run_with_args::<&str>(&[]);
 
-        Ok(exit_code.into())
+        exit_code.into()
     }
 }
 
-fn activate_without_tray(app: &Application, config: &Config) -> Result<()> {
+fn activate_without_tray(app: &Application, config: &Config) {
     info!("Activating keystroke application (no tray)");
 
     let state = Rc::new(RefCell::new(RuntimeState::default()));
     let config = Rc::new(RefCell::new(config.clone()));
 
     setup_launcher_and_modes(app, &state, &config);
-
-    Ok(())
 }
 
 fn activate(
@@ -95,7 +92,7 @@ fn activate(
     config: &Config,
     tray_rx: Receiver<TrayAction>,
     tray_handle: TrayHandle,
-) -> Result<()> {
+) {
     info!("Activating keystroke application");
 
     let state = Rc::new(RefCell::new(RuntimeState::default()));
@@ -110,8 +107,6 @@ fn activate(
         tray_rx,
         tray_handle,
     );
-
-    Ok(())
 }
 
 fn setup_launcher_and_modes(

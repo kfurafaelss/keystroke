@@ -199,7 +199,7 @@ impl BubbleDisplayWidget {
             new_bubble_timeout: Duration::from_millis(NEW_BUBBLE_TIMEOUT_MS),
             modifiers: ModifierState::default(),
             want_new_bubble: false,
-            xkb_state: XkbState::new().expect("Failed to create XKB state"),
+            xkb_state: XkbState::default(),
             pressed_keys: HashMap::new(),
         }
     }

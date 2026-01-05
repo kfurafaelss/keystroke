@@ -8,7 +8,7 @@ use tracing::debug;
 
 const LOGO_SVG: &[u8] = include_bytes!("../assets/logo-symbolic.svg");
 
-const LAUNCHER_CSS: &str = r#"
+const LAUNCHER_CSS: &str = r"
 
 .launcher-window {
     background-color: @theme_bg_color;
@@ -112,7 +112,7 @@ const LAUNCHER_CSS: &str = r#"
     font-weight: 500;
     box-shadow: 0 1px 2px alpha(black, 0.05);
 }
-"#;
+";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DisplayMode {
@@ -177,10 +177,7 @@ fn create_launcher_content(
         .build();
 
     let color = {
-        #[allow(deprecated)]
-        let style_context = window.style_context();
-        #[allow(deprecated)]
-        let rgba = style_context.color();
+        let rgba = window.color();
         format!(
             "#{:02x}{:02x}{:02x}",
             (rgba.red() * 255.0) as u8,

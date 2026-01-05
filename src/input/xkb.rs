@@ -325,8 +325,28 @@ impl XkbState {
 }
 
 impl Default for XkbState {
+    #[allow(clippy::expect_used)]
     fn default() -> Self {
-        Self::new().expect("Failed to create default XKB state")
+        Self::new().unwrap_or_else(|| {
+            let context = xkb::Context::new(xkb::CONTEXT_NO_FLAGS);
+            let keymap = xkb::Keymap::new_from_names(
+                &context,
+                "",
+                "",
+                "",
+                "",
+                None,
+                xkb::KEYMAP_COMPILE_NO_FLAGS,
+            )
+            .expect("Failed to create fallback XKB keymap - XKB may not be installed");
+            let state = xkb::State::new(&keymap);
+            Self {
+                context,
+                keymap,
+                state,
+                layout_name: "default".to_string(),
+            }
+        })
     }
 }
 

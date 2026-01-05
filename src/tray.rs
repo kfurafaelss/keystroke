@@ -91,8 +91,11 @@ impl Tray for KeystrokeTray {
     }
 
     fn tool_tip(&self) -> ksni::ToolTip {
-        let state = self.state.lock().unwrap();
-        let status = if state.paused { "Paused" } else { "Running" };
+        let status = self
+            .state
+            .lock()
+            .map(|s| if s.paused { "Paused" } else { "Running" })
+            .unwrap_or("Running");
         ksni::ToolTip {
             icon_name: String::new(),
             icon_pixmap: Vec::new(),
@@ -109,9 +112,11 @@ impl Tray for KeystrokeTray {
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
-        let state = self.state.lock().unwrap();
-        let pause_label = if state.paused { "Resume" } else { "Pause" };
-        drop(state);
+        let pause_label = self
+            .state
+            .lock()
+            .map(|s| if s.paused { "Resume" } else { "Pause" })
+            .unwrap_or("Pause");
 
         vec![
             MenuItem::Standard(StandardItem {

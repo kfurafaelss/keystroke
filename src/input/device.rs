@@ -85,8 +85,8 @@ pub fn get_primary_keyboard() -> Result<KeyboardDevice> {
         .cloned()
         .collect();
 
-    if !physical.is_empty() {
-        return Ok(physical.into_iter().next().unwrap());
+    if let Some(keyboard) = physical.into_iter().next() {
+        return Ok(keyboard);
     }
 
     keyboards

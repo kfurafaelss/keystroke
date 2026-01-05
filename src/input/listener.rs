@@ -118,7 +118,7 @@ fn listen_to_device(
     let mut pressed_keys = HashSet::new();
 
     while running.load(Ordering::SeqCst) {
-        let poll_result = poll(&mut poll_fds, PollTimeout::try_from(100).unwrap());
+        let poll_result = poll(&mut poll_fds, PollTimeout::from(100_u16));
 
         match poll_result {
             Ok(_n) => {

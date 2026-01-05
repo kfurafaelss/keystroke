@@ -40,15 +40,15 @@ fn main() -> Result<()> {
         Ok((tray_rx, tray_handle)) => {
             info!("System tray started successfully");
 
-            let app = app::App::new(config)?;
-            let exit_code = app.run_with_tray(tray_rx, tray_handle)?;
+            let app = app::App::new(config);
+            let exit_code = app.run_with_tray(tray_rx, tray_handle);
             std::process::exit(exit_code);
         }
         Err(e) => {
             warn!("Failed to start system tray: {}, running without tray", e);
 
-            let app = app::App::new(config)?;
-            let exit_code = app.run()?;
+            let app = app::App::new(config);
+            let exit_code = app.run();
             std::process::exit(exit_code);
         }
     }
